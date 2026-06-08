@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Khubaib POS Pro </title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    [x-cloak] { display: none !important; }
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      .receipt-print,
+      .receipt-print * { visibility: visible; }
+      .receipt-print {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 80mm;
+        padding: 12px;
+        font-family: 'Courier New', monospace;
+        background: white;
+        color: #000;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .receipt-print .receipt-header {
+        text-align: center;
+        font-weight: bold;
+        font-size: 14px;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 6px;
+        margin-bottom: 6px;
+      }
+      .receipt-print .receipt-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 2px 0;
+        font-size: 11px;
+      }
+      .receipt-print .receipt-total {
+        border-top: 1px dashed #000;
+        margin-top: 6px;
+        padding-top: 4px;
+        font-weight: bold;
+        font-size: 13px;
+      }
+    }
+    .scrollable-cart { max-height: 360px; overflow-y: auto; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .sidebar-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .settings-group {
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .settings-group h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: #059669;
+      border-left: 4px solid #10b981;
+      padding-left: 0.75rem;
+      letter-spacing: -0.01em;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #10b981;
+      border-color: #10b981;
+    }
+    .card-lift {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 antialiased font-sans" x-data="posApp()" x-init="init()" x-cloak>
+
+  <!-- Mobile overlay (only visible when mobile sidebar is open) -->
+  <div x-show="sidebarOpen" @click="sidebarOpen=false"
+       class="fixed inset-0 bg-slate-900/50 z-20 lg:hidden transition-opacity backdrop-blur-sm"
+       x-transition.opacity></div>
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside
+    class="fixed inset-y-0 left-0 z-30 flex flex-col bg-slate-900 text-slate-100 overflow-hidden sidebar-transition shadow-2xl"
+    :style="'width: ' + sidebarWidth() + '; height: 100vh; top: 0; left: 0;'"
+    @mouseenter="if(!isMobileCheck() && sidebarCollapsed) hoverExpand=true"
+    @mouseleave="if(!isMobileCheck() && sidebarCollapsed) hoverExpand=false">
+
+    <!-- Sidebar brand -->
+    <div class="flex items-center h-16 px-4 border-b border-slate-700/60 flex-shrink-0"
+         :class="(!sidebarCollapsed || hoverExpand || isMobileCheck()) ? 'gap-3' : 'justify-center'">
+      <!-- Logo container – shows uploaded logo if available, otherwise store icon -->
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 overflow-hidden">
+        <img x-show="logoUrl" :src="logoUrl" alt="Logo" class="w-full h-full object-cover">
+        <i x-show="!logoUrl" class="fas fa-store text-white text-lg"></i>
+      </div>
+      <div x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" class="overflow-hidden transition-all duration-200">
+        <p class="font-bold text-base leading-tight text-white" x-text="settings.shopName"></p>
+        <p class="text-xs text-emerald-300 font-medium mt-0.5">Khubaib Enterprises</p>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
+      <template x-for="item in navItems" :key="item.page">
+        <a href="#" @click.prevent="navigateTo(item.page)"
+           class="flex items-center rounded-xl transition-all duration-200 group relative whitespace-nowrap"
+           :class="{
+             'bg-emerald-600/20 text-emerald-300 font-semibold shadow-sm ring-1 ring-emerald-500/30': currentPage === item.page,
+             'text-slate-300 hover:bg-slate-800 hover:text-white': currentPage !== item.page,
+             'justify-center px-0 py-3': sidebarCollapsed && !hoverExpand && !isMobileCheck(),
+             'px-3 py-2.5': !sidebarCollapsed || hoverExpand || isMobileCheck()
+           }"
+           :title="(sidebarCollapsed && !hoverExpand && !isMobileCheck()) ? item.label : ''">
+          <i :class="item.icon + ' text-lg flex-shrink-0'" :style="(sidebarCollapsed && !hoverExpand && !isMobileCheck()) ? 'width:44px; text-align:center;' : 'width:24px; text-align:center;'"></i>
+          <span x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" class="ml-3 text-sm font-medium" x-text="item.label"></span>
+          <span x-show="currentPage === item.page && (!sidebarCollapsed || hoverExpand || isMobileCheck())" class="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        </a>
+      </template>
+
+      <!-- Admin divider -->
+      <template x-if="currentUser.role === 'admin'">
+        <div class="pt-3 mt-2 border-t border-slate-700/50">
+          <p x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" class="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Administration</p>
+          <template x-for="item in adminNavItems" :key="item.page">
+            <a href="#" @click.prevent="navigateTo(item.page)"
+               class="flex items-center rounded-xl transition-all duration-200 group relative whitespace-nowrap"
+               :class="{
+                 'bg-emerald-600/20 text-emerald-300 font-semibold shadow-sm ring-1 ring-emerald-500/30': currentPage === item.page,
+                 'text-slate-300 hover:bg-slate-800 hover:text-white': currentPage !== item.page,
+                 'justify-center px-0 py-3': sidebarCollapsed && !hoverExpand && !isMobileCheck(),
+                 'px-3 py-2.5': !sidebarCollapsed || hoverExpand || isMobileCheck()
+               }"
+               :title="(sidebarCollapsed && !hoverExpand && !isMobileCheck()) ? item.label : ''">
+              <i :class="item.icon + ' text-lg flex-shrink-0'" :style="(sidebarCollapsed && !hoverExpand && !isMobileCheck()) ? 'width:44px; text-align:center;' : 'width:24px; text-align:center;'"></i>
+              <span x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" class="ml-3 text-sm font-medium" x-text="item.label"></span>
+            </a>
+          </template>
+        </div>
+      </template>
+
+      <!-- Settings at bottom -->
+      <div class="pt-2 mt-2 border-t border-slate-700/50">
+        <a href="#" @click.prevent="navigateTo('settings')"
+           class="flex items-center rounded-xl transition-all duration-200 group relative whitespace-nowrap"
+           :class="{
+             'bg-emerald-600/20 text-emerald-300 font-semibold shadow-sm ring-1 ring-emerald-500/30': currentPage === 'settings',
+             'text-slate-300 hover:bg-slate-800 hover:text-white': currentPage !== 'settings',
+             'justify-center px-0 py-3': sidebarCollapsed && !hoverExpand && !isMobileCheck(),
+             'px-3 py-2.5': !sidebarCollapsed || hoverExpand || isMobileCheck()
+           }"
+           :title="(sidebarCollapsed && !hoverExpand && !isMobileCheck()) ? 'Settings' : ''">
+          <i class="fas fa-cog text-lg flex-shrink-0" :style="(sidebarCollapsed && !hoverExpand && !isMobileCheck()) ? 'width:44px; text-align:center;' : 'width:24px; text-align:center;'"></i>
+          <span x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" class="ml-3 text-sm font-medium">Settings</span>
+        </a>
+      </div>
+    </nav>
+
+    <!-- Sidebar footer (expanded view) -->
+    <div x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" class="px-3 py-4 border-t border-slate-700/50 flex-shrink-0">
+      <div class="flex items-center gap-2 px-2 py-2 rounded-xl bg-slate-800/60">
+        <div class="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <span x-text="(currentUser.fullName||'U').charAt(0).toUpperCase()"></span>
+        </div>
+        <div class="overflow-hidden">
+          <p class="text-xs font-medium text-slate-200 truncate" x-text="currentUser.fullName"></p>
+          <p class="text-[10px] text-slate-400 capitalize" x-text="currentUser.role"></p>
+        </div>
+        <button @click="logout()" class="ml-auto text-slate-400 hover:text-red-400 transition p-1" title="Logout">
+          <i class="fas fa-sign-out-alt text-sm"></i>
+        </button>
+      </div>
+    </div>
+    <!-- Sidebar footer (collapsed view) -->
+    <div x-show="sidebarCollapsed && !hoverExpand && !isMobileCheck()" class="py-3 border-t border-slate-700/50 flex-shrink-0 flex justify-center">
+      <button @click="logout()" class="text-slate-400 hover:text-red-400 transition p-2" title="Logout">
+        <i class="fas fa-sign-out-alt text-lg"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <div class="flex-1 flex flex-col min-h-screen transition-all duration-300"
+       :style="'margin-left: ' + mainMarginLeft() + ';'">
+
+    <!-- Header (store name removed, only breadcrumb remains) -->
+    <header class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between flex-shrink-0 shadow-sm z-10">
+      <div class="flex items-center gap-3">
+        <button @click="toggleSidebar()"
+                class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition text-slate-600 hover:text-slate-800"
+                :title="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+          <i class="fas fa-bars text-lg"></i>
+        </button>
+        <div class="hidden sm:flex items-center gap-2">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-md" x-text="currentPageLabel"></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-slate-500 hidden md:flex items-center gap-1.5">
+          <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs font-bold">
+            <span x-text="(currentUser.fullName||'U').charAt(0).toUpperCase()"></span>
+          </div>
+          <span x-text="currentUser.fullName"></span>
+          <span class="text-xs text-slate-400 capitalize">(<span x-text="currentUser.role"></span>)</span>
+        </span>
+        <button @click="logout()" class="text-slate-400 hover:text-red-500 transition text-sm hidden sm:inline">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50">
+      <!-- ================= DASHBOARD ================= -->
+      <div x-show="currentPage === 'dashboard'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-slate-800">📊 Dashboard</h2>
+          <p class="text-sm text-slate-500 mt-1">Overview of today's business metrics</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div class="bg-white p-5 rounded-2xl shadow-sm card-lift">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-medium text-slate-500">💰 Today's Sales</p>
+              <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center"><i class="fas fa-coins text-emerald-600"></i></div>
+            </div>
+            <p class="text-2xl font-bold text-emerald-700">PKR <span x-text="dashboard.todaySalesTotal.toLocaleString()"></span></p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl shadow-sm card-lift">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-medium text-slate-500">📄 Today's Invoices</p>
+              <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><i class="fas fa-receipt text-blue-600"></i></div>
+            </div>
+            <p class="text-2xl font-bold text-blue-700" x-text="dashboard.todayInvoices"></p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl shadow-sm card-lift" x-show="settings.showCashInHand">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-medium text-slate-500">💵 Cash in Hand</p>
+              <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><i class="fas fa-wallet text-amber-600"></i></div>
+            </div>
+            <p class="text-2xl font-bold text-amber-700">PKR <span x-text="dashboard.cashInHand.toLocaleString()"></span></p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl shadow-sm card-lift">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-medium text-slate-500">📱 JazzCash Balance</p>
+              <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center"><i class="fas fa-mobile-alt text-purple-600"></i></div>
+            </div>
+            <p class="text-2xl font-bold text-purple-700">PKR <span x-text="jazzcash.balance.toLocaleString()"></span></p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+          <div class="bg-white p-5 rounded-2xl shadow-sm card-lift">
+            <p class="text-sm font-medium text-slate-500 mb-1">🔥 Most Bought Today</p>
+            <p class="text-xl font-bold text-slate-800" x-text="dashboard.topProductToday.name || 'No sales yet'"></p>
+            <p class="text-sm text-slate-500 mt-1" x-show="dashboard.topProductToday.name">Qty: <span x-text="dashboard.topProductToday.qty"></span> <span x-text="dashboard.topProductToday.unit"></span></p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl shadow-sm card-lift">
+            <p class="text-sm font-medium text-slate-500 mb-1">⚠️ Low Stock Alerts</p>
+            <p class="text-3xl font-bold text-rose-600" x-text="dashboard.lowStockCount"></p>
+            <p class="text-xs text-slate-400 mt-1">Products below threshold</p>
+          </div>
+        </div>
+        <div class="mt-5 bg-white rounded-2xl shadow-sm p-6">
+          <h3 class="font-bold text-lg mb-4 text-slate-800"><i class="fas fa-exclamation-triangle text-amber-500 mr-2"></i>Critical Low Stock Items</h3>
+          <div class="table-wrapper">
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-50 rounded-lg">
+                <tr><th class="px-4 py-2.5 text-left font-semibold text-slate-600">Product</th><th class="px-4 py-2.5 text-center font-semibold text-slate-600">Stock</th><th class="px-4 py-2.5 text-center font-semibold text-slate-600">Unit</th><th class="px-4 py-2.5 text-center font-semibold text-slate-600">Threshold</th></tr>
+              </thead>
+              <tbody>
+                <template x-for="p in dashboard.lowStock">
+                  <tr class="border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-4 py-2.5 font-medium text-slate-700" x-text="p.name"></td><td class="text-rose-600 font-bold text-center" x-text="p.stock"></td><td class="text-center text-slate-500" x-text="p.unit"></td><td class="text-center text-slate-500" x-text="p.lowStockThreshold"></td></tr>
+                </template>
+              </tbody>
+            </table>
+            <div x-show="!dashboard.lowStock.length" class="text-center py-8 text-slate-400">
+              <i class="fas fa-check-circle text-emerald-400 text-3xl mb-2 block"></i> All stock levels healthy!
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SMART BILLING ================= -->
+      <div x-show="currentPage === 'billing'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="flex flex-col lg:flex-row gap-6">
+          <div class="lg:w-2/3 bg-white rounded-2xl shadow-sm p-5">
+            <label class="block text-sm font-semibold text-slate-700 mb-2"><i class="fas fa-search mr-1 text-emerald-500"></i> Search Product (Name / Barcode)</label>
+            <input type="text" x-model="bill.search" @input.debounce.250ms="searchProducts()" @keydown.enter.prevent="handleBarcodeEnter()" placeholder="Type product name, scan barcode..." class="bill-search w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition bg-slate-50 focus:bg-white text-slate-700 placeholder-slate-400">
+            <div class="mt-5 max-h-96 overflow-y-auto space-y-2">
+              <template x-for="p in bill.searchResults">
+                <div @click="addToCart(p)" class="flex justify-between items-center p-3.5 border border-slate-100 rounded-xl hover:bg-emerald-50 cursor-pointer transition-all card-lift bg-white">
+                  <div>
+                    <span class="font-semibold text-slate-700" x-text="p.name + ' (' + p.unit + ')'"></span><br>
+                    <span class="text-xs text-slate-400" x-text="'Barcode: ' + p.barcode"></span>
+                  </div>
+                  <div class="text-right">
+                    <span class="font-bold text-slate-700">PKR <span x-text="p.sellingPrice"></span></span><span class="text-slate-400 text-sm">/<span x-text="p.unit"></span></span><br>
+                    <span class="text-xs font-medium" :class="{'text-rose-500': p.stock<5, 'text-slate-400': p.stock>=5}">Stock: <span x-text="p.stock"></span> <span x-text="p.unit"></span></span>
+                  </div>
+                </div>
+              </template>
+              <div x-show="bill.searchResults.length===0 && bill.search!==''" class="p-8 text-center text-slate-400 bg-slate-50 rounded-xl">
+                <i class="fas fa-search text-3xl mb-2 block opacity-50"></i> No matching products
+              </div>
+            </div>
+          </div>
+          <div class="lg:w-1/3 bg-white rounded-2xl shadow-sm p-5 lg:sticky lg:top-5 self-start">
+            <h3 class="text-lg font-bold border-b border-slate-100 pb-3 flex justify-between items-center">
+              <span>🧾 Current Bill</span>
+              <span class="text-sm font-normal text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full" x-text="bill.cart.length + ' items'"></span>
+            </h3>
+            <div class="scrollable-cart mt-3 space-y-2">
+              <template x-for="(item, idx) in bill.cart">
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div class="flex-1 min-w-0">
+                    <span class="font-medium text-sm text-slate-700 block truncate" x-text="item.name + ' (' + item.unit + ')'"></span>
+                    <div class="mt-1.5 flex items-center gap-1 flex-wrap">
+                      <button @click="decrementItem(idx)" class="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-sm font-bold text-slate-600 transition">−</button>
+                      <input type="number" x-model="item.quantity" @input="updateQuantityFromInput(idx)" :step="item.soldType === 'open' ? '0.01' : '1'" min="0" class="w-16 p-1.5 border border-slate-200 rounded-lg text-sm text-center bg-white text-slate-700">
+                      <button @click="incrementItem(idx)" class="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-sm font-bold text-slate-600 transition">+</button>
+                      <span class="text-xs text-slate-400" x-text="item.unit"></span>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-1" x-show="item.soldType === 'open' && item.conversionFactor && item.conversionFactor > 1">
+                      ⚖️ <span x-text="(item.quantity * item.conversionFactor).toFixed(0)"></span> <span x-text="item.smallerUnit || ''"></span>
+                    </div>
+                    <div class="mt-1.5" x-show="item.soldType === 'open'">
+                      <label class="text-xs text-slate-500 font-medium">Amount (PKR):</label>
+                      <input type="number" x-model="item.rupeeAmount" @input="updateQuantityFromRupees(idx)" min="0" placeholder="Enter amount" class="w-full p-1.5 border border-slate-200 rounded-lg text-sm bg-white">
+                    </div>
+                  </div>
+                  <div class="text-right ml-3">
+                    <span class="font-bold text-sm text-slate-700">PKR <span x-text="(item.quantity*item.sellingPrice).toLocaleString()"></span></span>
+                    <button @click="removeFromCart(idx)" class="ml-2 text-rose-400 hover:text-rose-600 transition p-1"><i class="fas fa-trash-alt text-xs"></i></button>
+                  </div>
+                </div>
+              </template>
+              <div x-show="bill.cart.length===0" class="text-center py-10 text-slate-400">
+                <i class="fas fa-shopping-cart text-3xl mb-2 block opacity-40"></i> Cart is empty
+              </div>
+            </div>
+            <div class="mt-3 flex gap-2 items-center" x-show="bill.cart.length>0">
+              <label class="text-sm font-medium text-slate-600">🏷️ Discount:</label>
+              <input type="number" x-model="bill.discountAmount" @input="updateBillTotal()" placeholder="PKR off" class="flex-1 p-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50" min="0">
+            </div>
+            <div class="mt-4 pt-3 border-t-2 border-slate-200">
+              <div class="flex justify-between text-xl font-black text-emerald-700">
+                <span>TOTAL</span><span>PKR <span x-text="bill.total.toLocaleString()"></span></span>
+              </div>
+              <div x-show="bill.discountAmount > 0" class="text-xs text-emerald-600 text-right mt-0.5">(Discount: PKR <span x-text="bill.discountAmount"></span>)</div>
+              <div class="mt-4 space-y-3">
+                <select x-model="bill.paymentMethod" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-700">
+                  <option value="cash">💵 Cash</option><option value="online">💳 Online Transfer</option><option value="loan">📝 Credit / Loan</option>
+                </select>
+                <div x-show="bill.paymentMethod !== 'loan'">
+                  <label class="text-sm font-medium text-slate-600">💰 Amount Received</label>
+                  <input type="number" x-model="bill.amountPaid" @input="calculateChange" min="0" placeholder="Enter amount" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+                  <div x-show="bill.changeAmount > 0" class="text-emerald-600 text-sm mt-1 font-medium">🔄 Change: PKR <span x-text="bill.changeAmount.toLocaleString()"></span></div>
+                  <div x-show="bill.amountPaid < bill.total && bill.amountPaid>0" class="text-amber-600 text-xs mt-1">Remaining: PKR <span x-text="(bill.total - bill.amountPaid).toLocaleString()"></span> as loan</div>
+                </div>
+                <div x-show="(bill.amountPaid < bill.total && bill.paymentMethod !== 'loan') || bill.paymentMethod === 'loan'">
+                  <label class="text-sm font-medium text-slate-600">👤 Customer (for due)</label>
+                  <select x-model="bill.loanCustomerId" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+                    <option value="">-- Select Customer --</option>
+                    <template x-for="c in customers"><option :value="c.id" x-text="c.name + ' (Due: PKR ' + (c.balance||0).toLocaleString() + ')'"></option></template>
+                  </select>
+                  <button @click="openCustomerModal('bill')" class="text-emerald-600 text-xs mt-1 font-medium hover:text-emerald-700">+ New Customer</button>
+                </div>
+                <div class="flex gap-3 mt-3">
+                  <button @click="completeSale(false)" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30">✅ Sale Only</button>
+                  <button @click="completeSale(true)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition shadow-md shadow-blue-500/20 hover:shadow-blue-500/30">🖨️ Sale & Print</button>
+                </div>
+                <div x-show="bill.statusMessage" class="mt-2 p-3 text-sm text-center rounded-xl font-medium" :class="{'bg-emerald-50 text-emerald-700 border border-emerald-200': bill.statusType==='success', 'bg-rose-50 text-rose-700 border border-rose-200': bill.statusType==='error'}" x-text="bill.statusMessage"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= STOCK PURCHASE ================= -->
+      <div x-show="currentPage === 'purchase'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-7">
+          <h2 class="text-2xl font-bold mb-5 text-slate-800">📦 Record Stock Purchase</h2>
+          <div class="space-y-4">
+            <select x-model="purchase.supplierId" class="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700"><option value="">-- Select Supplier --</option><template x-for="s in suppliers"><option :value="s.id" x-text="s.name + (s.phone ? ' - ' + s.phone : '')"></option></template></select>
+            <button @click="openSupplierModal" class="text-emerald-600 text-sm font-medium hover:text-emerald-700">+ New Supplier</button>
+            <div class="flex flex-wrap gap-2 items-end bg-slate-50 p-4 rounded-xl">
+              <div class="flex-1 min-w-[140px]"><label class="text-xs font-medium text-slate-500">Product</label><select x-model="purchase.selectedProductId" class="w-full p-2.5 border border-slate-200 rounded-lg bg-white"><option value="">Choose product</option><template x-for="p in allProducts"><option :value="p.id" x-text="p.name + ' (' + p.unit + ') - Cost: PKR ' + p.purchasePrice"></option></template></select></div>
+              <div class="w-28"><label class="text-xs font-medium text-slate-500">Unit Price</label><input type="number" step="any" x-model="purchase.customPrice" min="0" class="w-full p-2.5 border border-slate-200 rounded-lg bg-white" placeholder="PKR"></div>
+              <div class="w-24"><label class="text-xs font-medium text-slate-500">Qty</label><input type="number" step="any" x-model="purchase.quantity" min="0" class="w-full p-2.5 border border-slate-200 rounded-lg bg-white"></div>
+              <button @click="addPurchaseItem" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-semibold transition shadow-sm">➕ Add</button>
+            </div>
+            <button @click="openProductModalForPurchase" class="text-emerald-600 text-sm font-medium">+ Create New Product</button>
+            <div class="bg-slate-50 p-5 rounded-xl">
+              <h3 class="font-bold text-slate-700">📋 Purchase Items</h3>
+              <div class="space-y-2 mt-2">
+                <template x-for="(it,idx) in purchase.items">
+                  <div class="flex justify-between border-b border-slate-200 py-2.5 items-center">
+                    <span class="text-slate-600" x-text="it.name + ' x' + it.quantity + ' ' + it.unit + ' @ PKR ' + it.purchasePrice"></span>
+                    <span class="font-semibold text-slate-700">PKR <span x-text="(it.quantity*it.purchasePrice).toLocaleString()"></span></span>
+                    <button @click="purchase.items.splice(idx,1)" class="text-rose-400 hover:text-rose-600 transition ml-2"><i class="fas fa-times-circle"></i></button>
+                  </div>
+                </template>
+                <div class="font-bold pt-2 text-lg text-slate-800">Total: PKR <span x-text="purchase.total.toLocaleString()"></span></div>
+              </div>
+            </div>
+            <button @click="completePurchase" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-indigo-500/20">💾 Confirm Purchase & Update Stock</button>
+            <div x-show="purchase.statusMessage" class="p-3 text-center rounded-xl font-medium" :class="{'bg-emerald-50 text-emerald-700': purchase.statusType==='success', 'bg-rose-50 text-rose-700': purchase.statusType==='error'}" x-text="purchase.statusMessage"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= CUSTOMER KHATA ================= -->
+      <div x-show="currentPage === 'khata'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm p-6">
+          <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-slate-800">📒 Customer Khata</h2><button @click="openCustomerModal('khata')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm">+ Add Customer</button></div>
+          <select x-model="khata.selectedCustomer" @change="loadCustomerLedger" class="w-full p-3 border border-slate-200 rounded-xl mb-5 bg-slate-50 text-slate-700"><option value="">-- Select Customer --</option><template x-for="c in customers"><option :value="c.id" x-text="c.name + ' (Phone: ' + (c.phone||'N/A') + ' | Due: PKR ' + (c.balance||0).toLocaleString() + ')'"></option></template></select>
+          <div x-show="khata.ledger.length">
+            <div class="table-wrapper"><table class="min-w-full text-sm"><thead class="bg-slate-50"><tr><th class="px-4 py-2.5 text-left font-semibold text-slate-600">Date</th><th class="px-4 py-2.5 font-semibold text-slate-600">Transaction</th><th class="px-4 py-2.5 text-right font-semibold text-slate-600">Amount</th></tr></thead><tbody><template x-for="tx in khata.ledger"><tr class="border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-4 py-2.5 whitespace-nowrap text-slate-500" x-text="new Date(tx.date).toLocaleString()"></td><td class="text-slate-600" x-text="tx.type"></td><td class="text-right font-mono font-semibold" :class="{'text-rose-600': tx.category==='sale', 'text-emerald-600': tx.category==='payment'}" x-text="'PKR ' + tx.amount.toLocaleString()"></td></tr></template></tbody></table></div>
+            <div class="mt-5 flex gap-3 flex-wrap">
+              <input type="number" x-model="khata.paymentAmount" min="0" placeholder="Payment amount" class="flex-1 p-3 border border-slate-200 rounded-xl bg-slate-50 min-w-[160px]">
+              <select x-model="khata.paymentMethodType" class="p-3 border border-slate-200 rounded-xl bg-white"><option value="cash">💵 Cash</option><option value="online">💳 Online</option></select>
+              <button @click="recordPayment" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition shadow-sm">Record Payment</button>
+            </div>
+            <div x-show="khata.statusMessage" class="mt-2 text-sm text-center font-medium" :class="{'text-emerald-600': khata.statusType==='success', 'text-rose-600': khata.statusType==='error'}" x-text="khata.statusMessage"></div>
+          </div>
+          <div x-show="!khata.ledger.length && khata.selectedCustomer" class="text-center py-10 text-slate-400">No transactions yet.</div>
+        </div>
+      </div>
+
+      <!-- ================= PRODUCT MASTER ================= -->
+      <div x-show="currentPage === 'products'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+          <div class="flex justify-between items-center flex-wrap gap-3 mb-5">
+            <h2 class="text-2xl font-bold text-slate-800">📦 Product Inventory</h2>
+            <div class="flex gap-2 flex-wrap">
+              <input type="text" x-model="productSearch" placeholder="Search by name or barcode" class="p-2.5 border border-slate-200 rounded-xl w-64 bg-slate-50 text-slate-700">
+              <button @click="openProductModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-semibold transition shadow-sm">+ New Product</button>
+            </div>
+          </div>
+          <div class="product-grid">
+            <template x-for="p in filteredProducts()">
+              <div class="border border-slate-200 rounded-xl p-4 shadow-sm card-lift bg-white hover:border-emerald-300 transition-colors">
+                <div class="font-bold text-lg text-slate-800" x-text="p.name"></div>
+                <div class="text-xs text-slate-400 mt-0.5">Barcode: <span x-text="p.barcode"></span> | Unit: <span x-text="p.unit"></span></div>
+                <div class="mt-1">
+                  <span :class="{'bg-amber-100 text-amber-700': p.soldType==='open', 'bg-blue-100 text-blue-700': p.soldType==='pack'}" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="p.soldType==='open' ? 'Open Sale' : 'Pack Sale'"></span>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <span class="text-slate-500">📥 Cost: <span class="font-semibold text-slate-700">PKR <span x-text="p.purchasePrice"></span></span></span>
+                  <span class="text-slate-500">📤 MRP: <span class="font-semibold text-slate-700">PKR <span x-text="p.sellingPrice"></span></span></span>
+                  <span class="col-span-2">📦 Stock: <span :class="{'text-rose-600 font-bold': p.stock <= p.lowStockThreshold, 'text-slate-600': p.stock > p.lowStockThreshold}" x-text="p.stock + ' ' + p.unit"></span></span>
+                </div>
+                <div class="flex justify-end gap-3 mt-4 pt-3 border-t border-slate-100">
+                  <button @click="editProduct(p)" class="text-blue-600 hover:text-blue-800 font-medium text-sm transition"><i class="fas fa-edit"></i> Edit</button>
+                  <button @click="promptDelete(p.id)" class="text-rose-500 hover:text-rose-700 font-medium text-sm transition"><i class="fas fa-trash"></i> Delete</button>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div x-show="productsStatusMessage" class="mt-4 p-3 rounded-xl text-center font-medium" :class="{'bg-emerald-50 text-emerald-700': productsStatusType==='success', 'bg-rose-50 text-rose-700': productsStatusType==='error'}" x-text="productsStatusMessage"></div>
+        </div>
+      </div>
+
+      <!-- ================= ANALYTICS ================= -->
+      <div x-show="currentPage === 'analytics'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+          <h2 class="text-2xl font-bold mb-4 text-slate-800">📈 Sales Analytics</h2>
+          <div class="flex flex-wrap gap-3 mb-6">
+            <button @click="analyticsPeriod='today'; loadAnalytics()" class="px-4 py-2.5 rounded-xl font-medium transition" :class="{'bg-emerald-600 text-white shadow-md shadow-emerald-500/20': analyticsPeriod==='today', 'bg-slate-100 text-slate-600 hover:bg-slate-200': analyticsPeriod!=='today'}">Today</button>
+            <button @click="analyticsPeriod='week'; loadAnalytics()" class="px-4 py-2.5 rounded-xl font-medium transition" :class="{'bg-emerald-600 text-white shadow-md shadow-emerald-500/20': analyticsPeriod==='week', 'bg-slate-100 text-slate-600 hover:bg-slate-200': analyticsPeriod!=='week'}">This Week</button>
+            <button @click="analyticsPeriod='month'; loadAnalytics()" class="px-4 py-2.5 rounded-xl font-medium transition" :class="{'bg-emerald-600 text-white shadow-md shadow-emerald-500/20': analyticsPeriod==='month', 'bg-slate-100 text-slate-600 hover:bg-slate-200': analyticsPeriod!=='month'}">This Month</button>
+          </div>
+          <canvas id="comparisonChart" width="400" height="200" class="mb-6"></canvas>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="bg-emerald-50 p-5 rounded-2xl"><h3 class="font-bold text-lg text-slate-800">🏆 Top Selling Products</h3><div x-html="analytics.topProductsHtml" class="mt-2 text-slate-600 break-words overflow-hidden"></div></div>
+            <div class="bg-amber-50 p-5 rounded-2xl"><h3 class="font-bold text-lg text-slate-800">💰 Revenue Summary</h3><p class="text-3xl font-black text-emerald-700 mt-2">PKR <span x-text="analytics.totalSales.toLocaleString()"></span></p><p class="text-sm text-slate-500">Total Sales</p><p class="text-xl font-bold text-blue-700 mt-3">PKR <span x-text="analytics.profit.toLocaleString()"></span></p><p class="text-sm text-slate-500">Estimated Profit</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PAYMENT HISTORY ================= -->
+      <div x-show="currentPage === 'payments'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+          <h2 class="text-2xl font-bold mb-5 text-slate-800">💳 Complete Payment History</h2>
+          <div class="table-wrapper">
+            <table class="min-w-full text-sm"><thead class="bg-slate-50"><tr><th class="px-4 py-2.5 text-left font-semibold text-slate-600">Date</th><th class="px-4 py-2.5 font-semibold text-slate-600">Type</th><th class="px-4 py-2.5 font-semibold text-slate-600">Method</th><th class="px-4 py-2.5 text-right font-semibold text-slate-600">Amount (PKR)</th><th class="px-4 py-2.5 font-semibold text-slate-600">Reference</th></tr></thead><tbody>
+              <template x-for="tx in paymentHistory"><tr class="border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-4 py-2.5 whitespace-nowrap text-slate-500" x-text="new Date(tx.date).toLocaleString()"></td><td class="text-slate-600" x-text="tx.type"></td><td><span :class="{'bg-emerald-100 text-emerald-700': tx.method==='cash', 'bg-blue-100 text-blue-700': tx.method==='online', 'bg-purple-100 text-purple-700': tx.method==='jazzcash'}" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="tx.method"></span><span x-show="tx.method==='jazzcash' && tx.reference==='Initial'" class="ml-1 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-xs font-medium">Init</span></td><td class="text-right font-mono font-semibold text-slate-700" x-text="tx.amount.toLocaleString()"></td><td class="text-sm text-slate-400" x-text="tx.reference || '—'"></td></tr></template>
+              <tr x-show="!paymentHistory.length"><td colspan="5" class="text-center py-10 text-slate-400">No transactions yet.</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= JAZZCASH WALLET ================= -->
+      <div x-show="currentPage === 'jazzcash'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm p-7">
+          <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+            <h2 class="text-2xl font-bold text-slate-800"><i class="fas fa-coins text-emerald-600 mr-2"></i>JazzCash Wallet</h2>
+            <div class="bg-purple-50 px-6 py-3 rounded-2xl border border-purple-200">
+              <span class="text-sm text-purple-600 font-medium">Balance:</span>
+              <span class="text-2xl font-black text-purple-700 ml-2">PKR <span x-text="jazzcash.balance.toLocaleString()"></span></span>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-8">
+            <div class="bg-slate-50 p-5 rounded-2xl">
+              <h3 class="font-semibold text-lg mb-3 text-slate-700">➕ Add Transaction</h3>
+              <div class="space-y-3">
+                <select x-model="jazzcash.transactionType" class="w-full p-3 border border-slate-200 rounded-xl bg-white"><option value="received">📥 Receive Money</option><option value="sent">📤 Send Money</option><option x-show="!jazzcash.initialSet" value="initial">🏁 Set Initial Balance</option></select>
+                <input type="number" x-model="jazzcash.amount" min="0" placeholder="Amount (PKR)" class="w-full p-3 border border-slate-200 rounded-xl bg-white">
+                <input type="text" x-model="jazzcash.note" placeholder="Note" class="w-full p-3 border border-slate-200 rounded-xl bg-white">
+                <button @click="recordJazzcashTransaction" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl text-lg font-semibold transition shadow-md shadow-purple-500/20">Add Entry</button>
+                <div x-show="jazzcash.statusMessage" class="text-sm text-center font-medium" :class="{'text-emerald-600': jazzcash.statusType==='success', 'text-rose-600': jazzcash.statusType==='error'}" x-text="jazzcash.statusMessage"></div>
+              </div>
+            </div>
+            <div class="bg-slate-50 p-5 rounded-2xl">
+              <h3 class="font-semibold text-lg mb-3 text-slate-700">📜 Transaction History</h3>
+              <div class="max-h-96 overflow-y-auto">
+                <div class="table-wrapper"><table class="min-w-full text-sm"><thead class="bg-white rounded"><tr><th class="px-3 py-2 text-left font-semibold text-slate-600">Date</th><th class="px-3 py-2 font-semibold text-slate-600">Type</th><th class="px-3 py-2 text-right font-semibold text-slate-600">Amount</th><th class="px-3 py-2 font-semibold text-slate-600">Note</th></tr></thead><tbody><template x-for="tx in jazzcash.transactions"><tr class="border-b border-slate-200"><td class="px-3 py-2 whitespace-nowrap text-slate-500" x-text="new Date(tx.date).toLocaleDateString()"></td><td><span :class="{'bg-emerald-100 text-emerald-700': tx.type==='received', 'bg-rose-100 text-rose-700': tx.type==='sent', 'bg-slate-200 text-slate-600': tx.type==='initial'}" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="tx.type"></span></td><td class="text-right font-mono font-semibold" :class="{'text-emerald-600': tx.type!='sent', 'text-rose-600': tx.type=='sent'}" x-text="'PKR ' + tx.amount.toLocaleString()"></td><td class="text-xs text-slate-400" x-text="tx.note || '—'"></td></tr></template></tbody></table></div>
+                <div x-show="!jazzcash.transactions.length" class="text-center py-8 text-slate-400">No transactions</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= USERS MANAGEMENT ================= -->
+      <div x-show="currentPage === 'users' && currentUser.role === 'admin'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+          <div class="flex justify-between items-center mb-5"><h2 class="text-2xl font-bold text-slate-800">👥 Manage Users</h2><button @click="openUserModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold transition shadow-sm">+ New User</button></div>
+          <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50"><tr><th class="px-4 py-2.5 text-left font-semibold text-slate-600">Name</th><th class="px-4 py-2.5 font-semibold text-slate-600">Username</th><th class="px-4 py-2.5 font-semibold text-slate-600">Role</th><th class="px-4 py-2.5 font-semibold text-slate-600">Phone</th><th class="px-4 py-2.5 text-center font-semibold text-slate-600">Actions</th></tr></thead><tbody><template x-for="u in usersList"><tr class="border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-4 py-2.5 text-slate-700" x-text="u.fullName"></td><td class="px-4 py-2.5 text-slate-600" x-text="u.username"></td><td><span :class="{'bg-emerald-100 text-emerald-700': u.role==='admin', 'bg-blue-100 text-blue-700': u.role==='seller'}" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="u.role"></span></td><td class="text-slate-500" x-text="u.phone || '—'"></td><td class="text-center"><button @click="editUser(u)" class="text-blue-600 hover:text-blue-800 mr-3 transition"><i class="fas fa-edit"></i></button><button @click="deleteUser(u.id)" class="text-rose-500 hover:text-rose-700 transition"><i class="fas fa-trash"></i></button></td></tr></template></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ================= PERMISSIONS ================= -->
+      <div x-show="currentPage === 'permissions' && currentUser.role === 'admin'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+          <h2 class="text-2xl font-bold mb-5 text-slate-800">🔐 User Permissions</h2>
+          <div class="mb-4"><label class="block text-sm font-medium text-slate-600 mb-1">Select User</label><select x-model="permissionsSelectedUser" @change="loadPermissionsForUser()" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"><option value="">-- Choose user --</option><template x-for="u in usersList"><option :value="u.id" x-text="u.fullName + ' (' + u.username + ')'"></option></template></select></div>
+          <div x-show="permissionsForUserKeys.length >= 0">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"><template x-for="perm in permissionOptions"><label class="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 transition cursor-pointer"><input type="checkbox" :value="perm.key" x-model="permissionsForUserKeys" class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"> <span class="text-sm text-slate-600" x-text="perm.label"></span></label></template></div>
+            <button @click="savePermissions()" class="mt-5 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-semibold transition shadow-sm">Save Permissions</button>
+            <div x-show="permissionsStatusMessage" class="mt-2 text-sm text-emerald-600 font-medium" x-text="permissionsStatusMessage"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SETTINGS ================= -->
+      <div x-show="currentPage === 'settings'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="max-w-4xl mx-auto">
+          <h2 class="text-2xl font-bold mb-5 text-slate-800">⚙️ System Settings</h2>
+          <div class="settings-group"><h3><i class="fas fa-store mr-2"></i> General</h3><div class="space-y-3"><div><label class="text-sm font-medium text-slate-600">Shop Name</label><input type="text" x-model="settings.shopName" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div><div><label class="text-sm font-medium text-slate-600">Shop Phone</label><input type="text" x-model="settings.shopPhone" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div><div><label class="text-sm font-medium text-slate-600">Shop Address</label><textarea x-model="settings.shopAddress" rows="2" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></textarea></div><div><label class="text-sm font-medium text-slate-600">Receipt Footer</label><input type="text" x-model="settings.receiptFooter" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div><div><label class="text-sm font-medium text-slate-600">Default Payment Method</label><select x-model="settings.defaultPaymentMethod" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"><option value="cash">Cash</option><option value="online">Online</option></select></div><div><label class="text-sm font-medium text-slate-600">Zoom In: <span x-text="settings.pageZoom + '%'" class="font-bold text-emerald-600"></span></label><input type="range" min="100" max="150" step="5" x-model="settings.pageZoom" @input="applyZoom" class="w-full accent-emerald-600"></div><div class="flex items-center gap-2"><input type="checkbox" x-model="settings.showCashInHand" class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"><label class="text-sm text-slate-600">Show Cash in Hand on Dashboard</label></div><div class="flex items-center gap-2"><input type="checkbox" x-model="settings.autoPrint" class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"><label class="text-sm text-slate-600">Auto‑print receipt after sale</label></div></div></div>
+          <div class="settings-group"><h3><i class="fas fa-image mr-2"></i> Logo</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="text-sm font-medium text-slate-600">Upload Logo</label>
+                <input type="file" accept="image/*" @change="handleLogoUpload($event)" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-sm">
+                <p class="text-xs text-slate-400 mt-1">Select a square image (PNG/JPG). It will replace the store icon in the sidebar.</p>
+              </div>
+              <div x-show="logoUrl" class="flex items-center gap-3">
+                <span class="text-sm text-slate-600">Preview:</span>
+                <img :src="logoUrl" class="w-12 h-12 rounded-lg object-cover border">
+                <button @click="removeLogo()" class="text-rose-500 hover:text-rose-700 text-sm font-medium">Remove Logo</button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-group"><h3><i class="fas fa-print mr-2"></i> Printer & Barcode</h3>
+            <div class="space-y-3">
+              <div class="flex items-center gap-2"><input type="checkbox" x-model="settings.autoNavigateOnScan" class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"><label class="text-sm text-slate-600">Auto‑navigate to Billing on scan</label></div>
+              <div><label class="text-sm font-medium text-slate-600">Barcode Terminator Key</label>
+                <select x-model="settings.barcodeTerminator" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+                  <option value="Enter">Enter</option>
+                  <option value="Tab">Tab</option>
+                  <option value="None">None (idle timeout only)</option>
+                </select>
+              </div>
+              <div><label class="text-sm font-medium text-slate-600">Barcode Prefix (e.g., '$')</label><input type="text" x-model="settings.barcodePrefix" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50" placeholder="Leave empty if none"></div>
+              <button @click="testPrinter()" class="bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl w-full text-slate-700 font-medium transition">🖨️ Test Printer</button>
+              <button @click="testBarcodeScanner()" class="bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl w-full text-slate-700 font-medium transition">🔍 Test Barcode Scanner</button>
+              <p class="text-xs text-slate-400">USB scanner: plug in, focus on billing search field or scan anywhere.</p>
+            </div>
+          </div>
+          <div class="settings-group"><h3><i class="fas fa-user-circle mr-2"></i> My Profile</h3><div class="space-y-3"><div><label class="text-sm font-medium text-slate-600">Full Name</label><input type="text" x-model="profile.fullName" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div><div><label class="text-sm font-medium text-slate-600">Phone</label><input type="text" x-model="profile.phone" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div><div><label class="text-sm font-medium text-slate-600">New Password (leave blank to keep)</label><input type="password" x-model="profile.newPassword" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div><button @click="updateProfile()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold transition shadow-sm">Update Profile</button></div></div>
+          <div class="settings-group"><h3><i class="fas fa-database mr-2"></i> Backup & Restore</h3><div class="space-y-2"><button @click="backupData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl w-full font-semibold transition shadow-sm">📀 Download Full Backup (JSON)</button><input type="file" id="restoreFile" accept=".json" class="hidden" @change="restoreData"><button @click="document.getElementById('restoreFile').click()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl w-full font-semibold transition shadow-sm">📂 Restore from Backup</button><div x-show="backupRestoreMessage" class="text-sm text-center font-medium mt-2" :class="{'text-emerald-600': backupRestoreType==='success', 'text-rose-600': backupRestoreType==='error'}" x-text="backupRestoreMessage"></div></div></div>
+          <button @click="saveSettings()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-xl w-full font-bold mt-3 transition shadow-md shadow-emerald-500/20">💾 Save All Settings</button>
+          <div x-show="settingsStatusMessage" class="mt-3 p-3 text-center rounded-xl font-medium" :class="{'bg-emerald-50 text-emerald-700': settingsStatusType==='success', 'bg-rose-50 text-rose-700': settingsStatusType==='error'}" x-text="settingsStatusMessage"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 text-center p-3 text-xs text-slate-400 flex-shrink-0">
+      Khubaib Enterprises © 2026 </span>
+    </footer>
+  </div>
+
+  <!-- ============ MODALS ============ -->
+  <div x-show="infoModal.open" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm" x-transition @click.self="infoModal.open=false">
+    <div class="bg-white p-6 rounded-2xl w-80 shadow-2xl">
+      <h3 class="text-lg font-bold mb-3 text-slate-800" x-text="infoModal.title"></h3>
+      <p class="text-sm text-slate-600" x-text="infoModal.message"></p>
+      <div class="mt-5 flex justify-end">
+        <button @click="infoModal.open=false" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div x-show="deleteConfirm.open" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm" x-transition @click.self="deleteConfirm.open=false">
+    <div class="bg-white p-6 rounded-2xl w-80 shadow-2xl">
+      <h3 class="text-lg font-bold mb-3 text-slate-800">Delete Product?</h3>
+      <p class="text-sm text-slate-600">Are you sure you want to delete this product? This action cannot be undone.</p>
+      <div class="mt-5 flex justify-end gap-3">
+        <button @click="deleteConfirm.open=false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-medium transition">Cancel</button>
+        <button @click="confirmDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition shadow-sm">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unknown Barcode Modal -->
+  <div x-show="unknownBarcodeModal.open" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm" x-transition @click.self="unknownBarcodeModal.open=false">
+    <div class="bg-white p-6 rounded-2xl w-80 shadow-2xl">
+      <h3 class="text-lg font-bold mb-3 text-slate-800">Item not in inventory</h3>
+      <p class="text-sm text-slate-600">Barcode <strong x-text="unknownBarcodeModal.code"></strong> was not found. Do you want to add it now?</p>
+      <div class="mt-5 flex justify-end gap-3">
+        <button @click="unknownBarcodeModal.open=false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-medium transition">Cancel</button>
+        <button @click="addUnknownProduct()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm">Add to Inventory</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Modal -->
+  <div x-show="customerModal.open" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm" x-transition @click.self="customerModal.open=false">
+    <div class="bg-white p-6 rounded-2xl w-96 shadow-2xl">
+      <h3 class="text-xl font-bold mb-4 text-slate-800">👤 New Customer</h3>
+      <div class="space-y-3">
+        <input type="text" x-model="customerModal.form.name" placeholder="Full Name" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+        <input type="text" x-model="customerModal.form.phone" placeholder="Phone Number" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+        <input type="text" x-model="customerModal.form.address" placeholder="Address" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+      </div>
+      <div class="mt-5 flex justify-end gap-3">
+        <button @click="customerModal.open=false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-medium transition">Cancel</button>
+        <button @click="saveCustomer()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm">Save Customer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supplier Modal -->
+  <div x-show="supplierModal.open" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm" x-transition @click.self="supplierModal.open=false">
+    <div class="bg-white p-6 rounded-2xl w-96 shadow-2xl">
+      <h3 class="text-xl font-bold mb-4 text-slate-800">🚚 New Supplier</h3>
+      <div class="space-y-3">
+        <input type="text" x-model="supplierModal.form.name" placeholder="Supplier Name" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+        <input type="text" x-model="supplierModal.form.phone" placeholder="Phone" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+        <input type="text" x-model="supplierModal.form.address" placeholder="Address" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+      </div>
+      <div class="mt-5 flex justify-end gap-3">
+        <button @click="supplierModal.open=false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-medium transition">Cancel</button>
+        <button @click="saveSupplier()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm">Save Supplier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Modal -->
+  <div x-show="userModal.open" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm" x-transition @click.self="userModal.open=false">
+    <div class="bg-white p-6 rounded-2xl w-96 shadow-2xl">
+      <h3 class="text-xl font-bold mb-4 text-slate-800" x-text="userModal.editing ? '✏️ Edit User' : '👤 New User'"></h3>
+      <div class="space-y-3">
+        <input type="text" x-model="userModal.form.fullName" placeholder="Full Name" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+        <input type="text" x-model="userModal.form.username" placeholder="Username" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+        <input type="password" x-model="userModal.form.password" placeholder="Password (min 6 chars)" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+        <select x-model="userModal.form.role" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"><option value="admin">Admin</option><option value="seller">Seller</option></select>
+        <input type="text" x-model="userModal.form.phone" placeholder="Phone" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50">
+      </div>
+      <div class="mt-5 flex justify-end gap-3">
+        <button @click="userModal.open=false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-medium transition">Cancel</button>
+        <button @click="saveUser()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm">Save User</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Modal -->
+  <div x-show="productModal.open" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm" x-transition @click.self="productModal.open=false">
+    <div class="bg-white p-6 rounded-2xl w-96 max-h-[85vh] overflow-y-auto shadow-2xl">
+      <h3 class="text-xl font-bold mb-4 text-slate-800" x-text="productModal.editing ? '✏️ Edit Product' : '📦 New Product'"></h3>
+      <div class="space-y-3">
+        <div><label class="text-sm font-medium text-slate-600">Product Name</label><input type="text" x-model="productModal.form.name" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+        <div><label class="text-sm font-medium text-slate-600">Barcode</label><input type="text" x-model="productModal.form.barcode" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+        <div><label class="text-sm font-medium text-slate-600">Unit</label><input type="text" x-model="productModal.form.unit" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+        <div><label class="text-sm font-medium text-slate-600">Purchase Price (PKR)</label><input type="number" step="any" x-model="productModal.form.purchasePrice" min="0" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+        <div><label class="text-sm font-medium text-slate-600">Selling Price (PKR)</label><input type="number" step="any" x-model="productModal.form.sellingPrice" min="0" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+        <div><label class="text-sm font-medium text-slate-600">Stock</label><input type="number" step="any" x-model="productModal.form.stock" min="0" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+        <div><label class="text-sm font-medium text-slate-600">Low Stock Threshold</label><input type="number" x-model="productModal.form.lowStockThreshold" min="0" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+        <div><label class="text-sm font-medium text-slate-600">Sale Type</label><select x-model="productModal.form.soldType" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"><option value="pack">Pack (sealed item)</option><option value="open">Open (loose, by weight)</option></select></div>
+        <template x-if="productModal.form.soldType === 'open'">
+          <div class="pt-2 border-t border-slate-100">
+            <p class="text-xs text-slate-500 mb-2">⚖️ For accurate open sales, define a smaller measurement unit and its conversion factor.</p>
+            <div class="space-y-3">
+              <div><label class="text-sm font-medium text-slate-600">Smaller Unit (e.g., g, ml)</label><input type="text" x-model="productModal.form.smallerUnit" placeholder="g, ml" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+              <div><label class="text-sm font-medium text-slate-600">Conversion Factor (1 <span x-text="productModal.form.unit"></span> = ? smaller units)</label><input type="number" x-model="productModal.form.conversionFactor" placeholder="1000" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="mt-6 flex justify-end gap-3">
+        <button @click="productModal.open=false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-medium transition">Cancel</button>
+        <button @click="saveProduct()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt Print Template -->
+  <div class="receipt-print hidden" id="receiptPrintArea">
+    <div class="receipt-header" x-text="settings.shopName"></div>
+    <div style="text-align:center;font-size:10px;" x-text="settings.shopAddress"></div>
+    <div style="text-align:center;font-size:10px;" x-text="settings.shopPhone"></div>
+    <div style="text-align:center;margin:4px 0;">Invoice: <span x-text="receiptData.id"></span></div>
+    <div style="text-align:center;font-size:10px;" x-text="receiptData.date"></div>
+    <div style="border-top:1px dashed #000;margin:4px 0;"></div>
+    <template x-for="item in receiptData.items">
+      <div class="receipt-row"><span x-text="item.name + ' x' + item.quantity"></span><span x-text="'PKR ' + (item.quantity*item.sellingPrice).toLocaleString()"></span></div>
+    </template>
+    <div class="receipt-total receipt-row"><span>TOTAL</span><span>PKR <span x-text="receiptData.total.toLocaleString()"></span></span></div>
+    <div class="receipt-row" x-show="receiptData.paid"><span>Paid</span><span>PKR <span x-text="receiptData.paid.toLocaleString()"></span></span></div>
+    <div class="receipt-row" x-show="receiptData.loanAmount>0"><span>Loan Due</span><span>PKR <span x-text="receiptData.loanAmount.toLocaleString()"></span></span></div>
+    <div style="text-align:center;margin-top:8px;font-size:10px;" x-text="settings.receiptFooter"></div>
+  </div>
+
+  <script>
+    function posApp() {
+      return {
+        sidebarOpen: false,
+        sidebarCollapsed: false,
+        hoverExpand: false,
+        currentPage: 'dashboard',
+        currentUser: { id: 1, username: 'admin', fullName: 'Admin User', role: 'admin' },
+        usersList: [],
+        permissionsSelectedUser: null,
+        permissionsForUserKeys: [],
+        permissionOptions: [
+          { key: 'dashboard', label: 'Dashboard' }, { key: 'billing', label: 'Billing' }, { key: 'purchase', label: 'Purchase' },
+          { key: 'khata', label: 'Khata' }, { key: 'products', label: 'Products' }, { key: 'analytics', label: 'Analytics' },
+          { key: 'payments', label: 'Payments' }, { key: 'jazzcash', label: 'JazzCash' }, { key: 'settings', label: 'Settings' },
+          { key: 'users', label: 'Users' }, { key: 'permissions', label: 'Permissions' }
+        ],
+        permissionsStatusMessage: '',
+        userModal: { open: false, editing: false, form: { fullName: '', username: '', password: '', role: 'seller', phone: '' }, currentId: null },
+        profile: { fullName: '', phone: '', newPassword: '' },
+        dashboard: { todaySalesTotal: 0, todayInvoices: 0, cashInHand: 0, lowStockCount: 0, lowStock: [], topProductToday: { name: '', qty: 0, unit: '' } },
+        bill: { search: '', searchResults: [], cart: [], total: 0, discountAmount: 0, paymentMethod: 'cash', amountPaid: 0, loanCustomerId: '', statusMessage: '', statusType: '', changeAmount: 0 },
+        purchase: { supplierId: '', selectedProductId: '', customPrice: 0, quantity: 1, items: [], total: 0, statusMessage: '', statusType: '' },
+        khata: { selectedCustomer: null, ledger: [], paymentAmount: 0, paymentMethodType: 'cash', statusMessage: '', statusType: '' },
+        allProducts: [],
+        suppliers: [],
+        customers: [],
+        productSearch: '',
+        deleteConfirm: { open: false, productId: null },
+        infoModal: { open: false, title: '', message: '' },
+        unknownBarcodeModal: { open: false, code: '' },
+        settings: {
+          shopName: 'Kiryana Store', shopPhone: '', shopAddress: '', receiptFooter: 'Thank you!',
+          showCashInHand: true, autoPrint: false, defaultPaymentMethod: 'cash',
+          barcodeTerminator: 'Enter', barcodePrefix: '', autoNavigateOnScan: true,
+          pageZoom: 100
+        },
+        settingsStatusMessage: '', settingsStatusType: '',
+        productsStatusMessage: '', productsStatusType: '',
+        productModal: { open: false, editing: false, form: { name: '', barcode: '', unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1 }, currentId: null },
+        customerModal: { open: false, form: {}, returnContext: null },
+        supplierModal: { open: false, form: {} },
+        jazzcash: { balance: 0, transactions: [], transactionType: 'received', amount: 0, note: '', initialSet: false, statusMessage: '', statusType: '' },
+        paymentHistory: [],
+        analyticsPeriod: 'today',
+        analytics: { totalSales: 0, profit: 0, topProductsHtml: '' },
+        comparisonChart: null,
+        backupRestoreMessage: '', backupRestoreType: '',
+        receiptData: { id: '', date: '', items: [], total: 0, paid: 0, loanAmount: 0 },
+        logoUrl: '', // custom logo data URL
+        navItems: [
+          { page: 'dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+          { page: 'billing', label: 'Smart Billing', icon: 'fas fa-shopping-cart' },
+          { page: 'purchase', label: 'Stock Purchase', icon: 'fas fa-truck-loading' },
+          { page: 'khata', label: 'Customer Khata', icon: 'fas fa-users' },
+          { page: 'products', label: 'Product Master', icon: 'fas fa-boxes' },
+          { page: 'analytics', label: 'Analytics', icon: 'fas fa-chart-line' },
+          { page: 'payments', label: 'Payment History', icon: 'fas fa-history' },
+          { page: 'jazzcash', label: 'JazzCash Wallet', icon: 'fas fa-coins' },
+        ],
+        adminNavItems: [
+          { page: 'users', label: 'Users', icon: 'fas fa-users-cog' },
+          { page: 'permissions', label: 'Permissions', icon: 'fas fa-lock' },
+        ],
+        _billingLock: false,
+        scannerBuffer: '',
+        scannerTimeout: null,
+        _lastScannedCode: null,
+        _lastScanTime: 0,
+        _globalKeydownBound: false,
+
+        sidebarWidth() {
+          if (this.isMobileCheck()) {
+            return this.sidebarOpen ? '16rem' : '0';
+          }
+          if (this.sidebarCollapsed) {
+            return this.hoverExpand ? '260px' : '72px';
+          }
+          return '16rem';
+        },
+        mainMarginLeft() {
+          return this.isMobileCheck() ? '0' : this.sidebarWidth();
+        },
+        get currentPageLabel() {
+          const all = [...this.navItems, ...this.adminNavItems, { page: 'settings', label: 'Settings' }];
+          const found = all.find(n => n.page === this.currentPage);
+          return found ? found.label : 'Dashboard';
+        },
+        isMobileCheck() { return window.innerWidth < 1024; },
+
+        init() {
+          this.loadDemoData();
+          this.loadSettings();
+          this.loadJazzcashData();
+          this.loadPaymentHistory();
+          this.loadDashboardData();
+          this.initGlobalScannerListener();
+          this.applyZoom();
+          this.bill.paymentMethod = this.settings.defaultPaymentMethod || 'cash';
+          if (this.currentUser.role === 'admin') this.loadUsersList();
+          // Load custom logo from localStorage
+          this.logoUrl = localStorage.getItem('pos_logo') || '';
+          const savedCollapsed = localStorage.getItem('sidebarCollapsed');
+          this.sidebarCollapsed = savedCollapsed === 'true';
+          this.sidebarOpen = false;
+          window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) {
+              this.sidebarOpen = false;
+              this.hoverExpand = false;
+            }
+          });
+        },
+
+        handleLogoUpload(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            this.logoUrl = e.target.result;
+            localStorage.setItem('pos_logo', this.logoUrl);
+          };
+          reader.readAsDataURL(file);
+        },
+        removeLogo() {
+          this.logoUrl = '';
+          localStorage.removeItem('pos_logo');
+        },
+
+        toggleSidebar() {
+          if (this.isMobileCheck()) {
+            this.sidebarOpen = !this.sidebarOpen;
+          } else {
+            this.sidebarCollapsed = !this.sidebarCollapsed;
+            this.hoverExpand = false;
+            localStorage.setItem('sidebarCollapsed', this.sidebarCollapsed);
+          }
+        },
+        applyZoom() { document.body.style.zoom = (this.settings.pageZoom || 100) / 100; },
+        navigateTo(page) {
+          this.currentPage = page;
+          if (this.isMobileCheck()) this.sidebarOpen = false;
+          if (page === 'dashboard') this.loadDashboardData();
+          if (page === 'analytics') this.loadAnalytics();
+          if (page === 'payments') this.loadPaymentHistory();
+          if (page === 'users' && this.currentUser.role === 'admin') this.loadUsersList();
+        },
+        getStore(key, def) { try { const v = localStorage.getItem(`pos_${key}`); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
+        setStore(key, val) { localStorage.setItem(`pos_${key}`, JSON.stringify(val)); },
+
+        loadDemoData() {
+          if (!localStorage.getItem('pos_products')) localStorage.setItem('pos_products', JSON.stringify([
+            { id: 1, name: 'Basmati Rice', barcode: '8901', unit: 'kg', purchasePrice: 120, sellingPrice: 150, stock: 45, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1 },
+            { id: 2, name: 'Sugar', barcode: '8902', unit: 'kg', purchasePrice: 70, sellingPrice: 90, stock: 8, lowStockThreshold: 10, soldType: 'open', smallerUnit: 'g', conversionFactor: 1000 },
+            { id: 3, name: 'Cooking Oil', barcode: '8903', unit: 'liter', purchasePrice: 200, sellingPrice: 250, stock: 20, lowStockThreshold: 5, soldType: 'pack', smallerUnit: '', conversionFactor: 1 }
+          ]));
+          if (!localStorage.getItem('pos_customers')) localStorage.setItem('pos_customers', JSON.stringify([
+            { id: 101, name: 'Ramesh Sharma', phone: '9812345678', balance: 1200 },
+            { id: 102, name: 'Sana Khan', phone: '03001234567', balance: 0 }
+          ]));
+          if (!localStorage.getItem('pos_suppliers')) localStorage.setItem('pos_suppliers', JSON.stringify([
+            { id: 201, name: 'Wholesale Mart', phone: '9876543210', address: 'Industrial Area' }
+          ]));
+          if (!localStorage.getItem('pos_users')) localStorage.setItem('pos_users', JSON.stringify([
+            { id: 1, username: 'admin', password_hash: btoa('admin123'), fullName: 'Administrator', role: 'admin', phone: '0300-1234567' },
+            { id: 2, username: 'seller', password_hash: btoa('seller123'), fullName: 'Seller User', role: 'seller', phone: '0300-7654321' }
+          ]));
+          if (!localStorage.getItem('pos_permissions')) localStorage.setItem('pos_permissions', JSON.stringify([]));
+          this.loadProducts();
+          this.loadCustomers();
+          this.loadSuppliers();
+          this.loadUsersList();
+        },
+
+        loadProducts() {
+          const prods = this.getStore('products', []);
+          prods.forEach(p => { if (!p.soldType) p.soldType = 'pack'; if (!p.smallerUnit) p.smallerUnit = ''; if (!p.conversionFactor) p.conversionFactor = 1; });
+          this.allProducts = prods;
+          this.setStore('products', prods);
+          this.loadDashboardLowStock();
+        },
+        loadCustomers() { this.customers = this.getStore('customers', []); },
+        loadSuppliers() { this.suppliers = this.getStore('suppliers', []); },
+        loadUsersList() { this.usersList = this.getStore('users', []); },
+        loadDashboardLowStock() {
+          const low = this.allProducts.filter(p => (p.stock || 0) <= (p.lowStockThreshold || 10));
+          this.dashboard.lowStock = low;
+          this.dashboard.lowStockCount = low.length;
+        },
+
+        loadDashboardData() {
+          const sales = this.getStore('sales', []);
+          const today = new Date().toISOString().slice(0, 10);
+          const todaySales = sales.filter(s => s.date && s.date.slice(0, 10) === today);
+          this.dashboard.todaySalesTotal = todaySales.reduce((s, i) => s + (i.total || 0), 0);
+          this.dashboard.todayInvoices = todaySales.length;
+          const prodQty = {};
+          for (const s of todaySales)
+            for (const item of (s.items || [])) prodQty[item.id] = (prodQty[item.id] || 0) + (item.quantity || 0);
+          const topId = Object.keys(prodQty).reduce((a, b) => (prodQty[a] || 0) > (prodQty[b] || 0) ? a : b, null);
+          if (topId && this.allProducts.length) {
+            const p = this.allProducts.find(p => p.id == topId);
+            this.dashboard.topProductToday = { name: p.name, qty: prodQty[topId], unit: p.unit };
+          } else { this.dashboard.topProductToday = { name: 'No sales yet', qty: 0, unit: '' }; }
+          const cashFromToday = todaySales.reduce((s, i) => i.paymentMethod === 'cash' ? s + (i.paid || 0) : s, 0);
+          const jazzSent = (this.jazzcash.transactions || []).filter(t => t.type === 'sent').reduce((s, t) => s + (t.amount || 0), 0);
+          this.dashboard.cashInHand = cashFromToday + jazzSent;
+        },
+
+        loadPaymentHistory() {
+          const history = this.getStore('paymentHistory', []);
+          const jazzTrans = (this.jazzcash.transactions || []).map(t => ({
+            id: t.id, date: t.date, type: 'JazzCash', method: 'jazzcash', amount: t.amount,
+            reference: t.type === 'sent' ? 'Sent' : (t.type === 'received' ? 'Received' : 'Initial')
+          }));
+          const all = [...history, ...jazzTrans];
+          all.sort((a, b) => new Date(b.date) - new Date(a.date));
+          this.paymentHistory = all;
+        },
+
+        loadJazzcashData() {
+          const saved = this.getStore('jazzcash', null);
+          if (saved) {
+            this.jazzcash.balance = saved.balance || 0;
+            this.jazzcash.transactions = saved.transactions || [];
+            this.jazzcash.initialSet = saved.initialSet || false;
+          } else {
+            this.jazzcash.balance = 0;
+            this.jazzcash.transactions = [];
+            this.jazzcash.initialSet = false;
+          }
+        },
+        saveJazzcashData() { this.setStore('jazzcash', { balance: this.jazzcash.balance, transactions: this.jazzcash.transactions, initialSet: this.jazzcash.initialSet }); },
+
+        recordJazzcashTransaction() {
+          const amt = parseFloat(this.jazzcash.amount);
+          if (isNaN(amt) || amt <= 0) return;
+          const type = this.jazzcash.transactionType;
+          if (type === 'initial') {
+            if (this.jazzcash.initialSet) return;
+            this.jazzcash.balance = amt;
+            this.jazzcash.initialSet = true;
+            this.addPaymentHistory('JazzCash', 'jazzcash', amt, 'Initial');
+          } else if (type === 'received') {
+            this.jazzcash.balance += amt;
+            this.addPaymentHistory('JazzCash', 'jazzcash', amt, 'Received');
+          } else if (type === 'sent') {
+            if (amt > this.jazzcash.balance) return;
+            this.jazzcash.balance -= amt;
+            this.addPaymentHistory('JazzCash', 'jazzcash', amt, 'Sent');
+          }
+          const tx = { id: Date.now(), date: new Date().toISOString(), type, amount: amt, note: this.jazzcash.note || '' };
+          this.jazzcash.transactions.unshift(tx);
+          this.saveJazzcashData();
+          this.jazzcash.amount = 0;
+          this.jazzcash.note = '';
+          this.loadDashboardData();
+          this.loadPaymentHistory();
+        },
+
+        addPaymentHistory(type, method, amount, ref) {
+          const history = this.getStore('paymentHistory', []);
+          history.unshift({ id: Date.now(), date: new Date().toISOString(), type, method, amount, reference: ref });
+          this.setStore('paymentHistory', history);
+          this.loadPaymentHistory();
+        },
+
+        processScannedBarcode(rawCode) {
+          const code = rawCode.trim();
+          if (!code) return false;
+          let scanCode = code;
+          const prefix = (this.settings.barcodePrefix || '').trim();
+          if (prefix && scanCode.startsWith(prefix)) {
+            scanCode = scanCode.slice(prefix.length).trim();
+          }
+          if (!/^\d{8,}$/.test(scanCode)) return false;
+          const now = Date.now();
+          if (scanCode === this._lastScannedCode && now - this._lastScanTime < 500) return false;
+          this._lastScannedCode = scanCode;
+          this._lastScanTime = now;
+          const prod = this.allProducts.find(p => p.barcode === scanCode);
+          if (prod) {
+            if (this.currentPage !== 'billing') {
+              if (this.settings.autoNavigateOnScan) {
+                this.navigateTo('billing');
+              } else {
+                return true;
+              }
+            }
+            this.addToCart(prod);
+            this.bill.search = '';
+            this.searchProducts();
+            const activeEl = document.activeElement;
+            if (activeEl && activeEl.classList.contains('bill-search')) {
+              activeEl.value = '';
+            }
+            return true;
+          } else {
+            this.unknownBarcodeModal.code = scanCode;
+            this.unknownBarcodeModal.open = true;
+            this.bill.search = '';
+            return true;
+          }
+        },
+
+        handleBarcodeEnter() {
+          const code = this.bill.search.trim();
+          if (code) {
+            this.processScannedBarcode(code);
+            this.bill.search = '';
+          }
+        },
+
+        initGlobalScannerListener() {
+          if (this._globalKeydownBound) return;
+          this._globalKeydownBound = true;
+          document.addEventListener('keydown', (e) => {
+            const target = e.target;
+            if (target && target.tagName === 'INPUT' && target.classList.contains('bill-search')) return;
+            const terminator = this.settings.barcodeTerminator || 'Enter';
+            const key = e.key;
+            if (key === terminator && this.scannerBuffer.trim() !== '') {
+              e.preventDefault();
+              const code = this.scannerBuffer.trim();
+              this.scannerBuffer = '';
+              if (this.scannerTimeout) clearTimeout(this.scannerTimeout);
+              this.processScannedBarcode(code);
+            } else if (key === terminator && this.scannerBuffer.trim() === '') {
+              // do nothing
+            } else if (/^\d$/.test(key)) {
+              this.scannerBuffer += key;
+              if (this.scannerTimeout) clearTimeout(this.scannerTimeout);
+              this.scannerTimeout = setTimeout(() => {
+                if (this.scannerBuffer.trim() !== '') {
+                  const code = this.scannerBuffer.trim();
+                  this.scannerBuffer = '';
+                  this.processScannedBarcode(code);
+                }
+              }, 300);
+            }
+          });
+        },
+
+        searchProducts() {
+          const q = (this.bill.search || '').trim().toLowerCase();
+          if (!q) { this.bill.searchResults = []; return; }
+          this.bill.searchResults = this.allProducts.filter(p => (p.name || '').toLowerCase().includes(q) || (p.barcode || '').includes(q)).slice(0, 20);
+        },
+
+        addUnknownProduct() {
+          const code = this.unknownBarcodeModal.code;
+          this.unknownBarcodeModal.open = false;
+          this.productModal.editing = false;
+          this.productModal.form = { name: '', barcode: code, unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1 };
+          this.productModal.currentId = null;
+          this.productModal.open = true;
+        },
+        addToCart(p) {
+          if ((p.stock || 0) <= 0) return this.showBillStatus('Out of stock', 'error');
+          const ex = this.bill.cart.find(i => i.id === p.id);
+          if (ex) ex.quantity += 1;
+          else this.bill.cart.push({ ...p, quantity: 1, rupeeAmount: 0 });
+          this.updateBillTotal();
+        },
+        decrementItem(idx) {
+          const item = this.bill.cart[idx];
+          const inc = item.soldType === 'pack' ? 1 : 0.1;
+          item.quantity = Math.max(0, (item.quantity || 0) - inc);
+          this.updateQuantityFromInput(idx);
+        },
+        incrementItem(idx) {
+          const item = this.bill.cart[idx];
+          const inc = item.soldType === 'pack' ? 1 : 0.1;
+          item.quantity = (item.quantity || 0) + inc;
+          this.updateQuantityFromInput(idx);
+        },
+        updateQuantityFromInput(idx) {
+          if (this._billingLock) return;
+          const item = this.bill.cart[idx];
+          if (item.soldType === 'pack') item.quantity = Math.floor(item.quantity);
+          if (item.quantity <= 0) { this.bill.cart.splice(idx, 1); this.updateBillTotal(); return; }
+          this._billingLock = true;
+          item.rupeeAmount = Math.round(item.quantity * item.sellingPrice * 100) / 100;
+          this._billingLock = false;
+          this.updateBillTotal();
+        },
+        updateQuantityFromRupees(idx) {
+          if (this._billingLock) return;
+          const item = this.bill.cart[idx];
+          const amt = parseFloat(item.rupeeAmount);
+          if (!isNaN(amt) && amt > 0 && item.sellingPrice > 0) {
+            let newQty = amt / item.sellingPrice;
+            if (item.soldType === 'pack') newQty = Math.floor(newQty);
+            item.quantity = Math.round(newQty * 100) / 100;
+            if (item.quantity <= 0) { this.bill.cart.splice(idx, 1); this.updateBillTotal(); return; }
+            this._billingLock = true;
+            item.rupeeAmount = amt;
+            this._billingLock = false;
+            this.updateBillTotal();
+          } else if (amt === 0 && item.quantity === 0) { this.bill.cart.splice(idx, 1); this.updateBillTotal(); }
+        },
+        removeFromCart(idx) { this.bill.cart.splice(idx, 1); this.updateBillTotal(); },
+        updateBillTotal() {
+          const gross = this.bill.cart.reduce((s, i) => s + ((i.quantity || 0) * (i.sellingPrice || 0)), 0);
+          const discount = parseFloat(this.bill.discountAmount) || 0;
+          this.bill.total = Math.max(0, gross - discount);
+          this.calculateChange();
+        },
+        calculateChange() {
+          const paid = parseFloat(this.bill.amountPaid) || 0;
+          this.bill.changeAmount = paid > this.bill.total ? Math.round((paid - this.bill.total) * 100) / 100 : 0;
+        },
+        showBillStatus(msg, type) { this.bill.statusMessage = msg; this.bill.statusType = type; setTimeout(() => this.bill.statusMessage = '', 3000); },
+
+        completeSale(print) {
+          if (!this.bill.cart.length) return this.showBillStatus('Cart empty', 'error');
+          const total = this.bill.total;
+          let paid = parseFloat(this.bill.amountPaid) || 0, loanAmount = 0;
+          if (this.bill.paymentMethod === 'loan') { paid = 0; loanAmount = total; }
+          else if (paid < total) loanAmount = total - paid;
+          if (loanAmount > 0 && !this.bill.loanCustomerId) return this.showBillStatus('Select customer for credit', 'error');
+          for (const item of this.bill.cart) {
+            const prod = this.allProducts.find(p => p.id === item.id);
+            if (prod) prod.stock = Math.max(0, (prod.stock || 0) - (item.quantity || 0));
+          }
+          this.setStore('products', this.allProducts);
+          const profit = this.bill.cart.reduce((s, i) => s + (((i.sellingPrice || 0) - (i.purchasePrice || 0)) * (i.quantity || 0)), 0);
+          const saleRecord = {
+            id: Date.now(), date: new Date().toISOString(), items: [...this.bill.cart], total, paid, loanAmount,
+            customerId: loanAmount ? this.bill.loanCustomerId : null, paymentMethod: this.bill.paymentMethod, profit
+          };
+          const sales = this.getStore('sales', []);
+          sales.push(saleRecord);
+          this.setStore('sales', sales);
+          if (loanAmount && this.bill.loanCustomerId) {
+            const cust = this.customers.find(c => c.id == this.bill.loanCustomerId);
+            if (cust) { cust.balance = (cust.balance || 0) + loanAmount; this.setStore('customers', this.customers); this.addCustomerLedger(this.bill.loanCustomerId, `Sale #${saleRecord.id}`, loanAmount, 'sale'); }
+          }
+          if (paid > 0) this.addPaymentHistory('Sale', this.bill.paymentMethod, paid, `Invoice #${saleRecord.id}`);
+          this.showBillStatus(`✅ Sale #${saleRecord.id} completed! Profit: PKR ${profit.toLocaleString()}`, 'success');
+          if (print || this.settings.autoPrint) {
+            this.receiptData = { id: 'INV-' + saleRecord.id, date: new Date().toLocaleString(), items: [...this.bill.cart], total, paid, loanAmount };
+            setTimeout(() => window.print(), 400);
+          }
+          this.bill.cart = []; this.bill.total = 0; this.bill.discountAmount = 0; this.bill.amountPaid = 0;
+          this.bill.loanCustomerId = ''; this.bill.changeAmount = 0; this.bill.search = ''; this.bill.searchResults = [];
+          this.loadProducts(); this.loadCustomers(); this.loadDashboardData(); this.loadPaymentHistory();
+        },
+
+        addCustomerLedger(customerId, desc, amount, category) {
+          const ledgers = this.getStore('ledgers', {});
+          if (!ledgers[customerId]) ledgers[customerId] = [];
+          const cust = this.customers.find(c => c.id == customerId);
+          const rb = cust ? cust.balance : 0;
+          ledgers[customerId].push({ id: Date.now(), date: new Date().toISOString(), type: desc, amount, category, runningBalance: rb });
+          this.setStore('ledgers', ledgers);
+        },
+        loadCustomerLedger() {
+          if (!this.khata.selectedCustomer) { this.khata.ledger = []; return; }
+          const ledgers = this.getStore('ledgers', {});
+          this.khata.ledger = ledgers[this.khata.selectedCustomer] || [];
+        },
+        recordPayment() {
+          if (!this.khata.selectedCustomer || !this.khata.paymentAmount) return this.showKhataStatus('Select customer and amount', 'error');
+          const amt = parseFloat(this.khata.paymentAmount);
+          if (isNaN(amt) || amt <= 0) return;
+          const cust = this.customers.find(c => c.id == this.khata.selectedCustomer);
+          if (!cust) return;
+          cust.balance = Math.max(0, (cust.balance || 0) - amt);
+          this.setStore('customers', this.customers);
+          this.addCustomerLedger(this.khata.selectedCustomer, `Payment (${this.khata.paymentMethodType})`, amt, 'payment');
+          this.addPaymentHistory('Khata Payment', this.khata.paymentMethodType, amt, `Customer: ${cust.name}`);
+          this.showKhataStatus(`✅ Payment PKR ${amt.toLocaleString()} recorded`, 'success');
+          this.khata.paymentAmount = 0;
+          this.loadCustomerLedger();
+          this.loadCustomers();
+          this.loadPaymentHistory();
+        },
+        showKhataStatus(msg, type) { this.khata.statusMessage = msg; this.khata.statusType = type; setTimeout(() => this.khata.statusMessage = '', 3000); },
+
+        addPurchaseItem() {
+          const prod = this.allProducts.find(p => p.id == this.purchase.selectedProductId);
+          if (!prod) return;
+          const qty = parseFloat(this.purchase.quantity) || 1;
+          const price = parseFloat(this.purchase.customPrice) || prod.purchasePrice || 0;
+          const existing = this.purchase.items.find(i => i.id === prod.id);
+          if (existing) existing.quantity += qty;
+          else this.purchase.items.push({ id: prod.id, name: prod.name, unit: prod.unit, purchasePrice: price, quantity: qty });
+          this.purchase.total = this.purchase.items.reduce((s, i) => s + ((i.purchasePrice || 0) * (i.quantity || 0)), 0);
+          this.purchase.selectedProductId = ''; this.purchase.customPrice = 0; this.purchase.quantity = 1;
+        },
+        completePurchase() {
+          if (!this.purchase.supplierId || !this.purchase.items.length) return;
+          for (const item of this.purchase.items) {
+            const prod = this.allProducts.find(p => p.id === item.id);
+            if (prod) { prod.stock = (prod.stock || 0) + (item.quantity || 0); if (item.purchasePrice && item.purchasePrice !== prod.purchasePrice) prod.purchasePrice = item.purchasePrice; }
+          }
+          this.setStore('products', this.allProducts);
+          this.addPaymentHistory('Purchase', 'cash', this.purchase.total, `Supplier: ${this.purchase.supplierId}`);
+          this.showPurchaseStatus('✅ Stock updated', 'success');
+          this.purchase.items = []; this.purchase.total = 0; this.purchase.supplierId = '';
+          this.loadProducts(); this.loadDashboardData(); this.loadPaymentHistory();
+        },
+        showPurchaseStatus(msg, type) { this.purchase.statusMessage = msg; this.purchase.statusType = type; setTimeout(() => this.purchase.statusMessage = '', 3000); },
+        getProductUnit(pid) { const p = this.allProducts.find(p => p.id == pid); return p ? p.unit || 'unit' : 'unit'; },
+        openProductModalForPurchase() { this.productModal.editing = false; this.productModal.form = { name: '', barcode: Math.floor(Math.random() * 1000000).toString(), unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1 }; this.productModal.open = true; },
+        openCustomerModal(ctx) { this.customerModal.form = {}; this.customerModal.open = true; this.customerModal.returnContext = ctx; },
+        saveCustomer() {
+          if (!this.customerModal.form.name) return;
+          const newCust = { id: Date.now(), name: this.customerModal.form.name, phone: this.customerModal.form.phone || '', address: this.customerModal.form.address || '', balance: 0 };
+          this.customers.push(newCust);
+          this.setStore('customers', this.customers);
+          this.customerModal.open = false;
+          this.loadCustomers();
+        },
+        openSupplierModal() { this.supplierModal.form = {}; this.supplierModal.open = true; },
+        saveSupplier() {
+          if (!this.supplierModal.form.name) return;
+          this.suppliers.push({ id: Date.now(), ...this.supplierModal.form });
+          this.setStore('suppliers', this.suppliers);
+          this.supplierModal.open = false;
+          this.loadSuppliers();
+        },
+        openUserModal(user = null) {
+          if (user) { this.userModal.editing = true; this.userModal.currentId = user.id; this.userModal.form = { fullName: user.fullName, username: user.username, password: '', role: user.role, phone: user.phone || '' }; }
+          else { this.userModal.editing = false; this.userModal.form = { fullName: '', username: '', password: '', role: 'seller', phone: '' }; }
+          this.userModal.open = true;
+        },
+        saveUser() {
+          const form = this.userModal.form;
+          if (!form.fullName || !form.username) return;
+          let users = this.getStore('users', []);
+          if (this.userModal.editing) {
+            const idx = users.findIndex(u => u.id == this.userModal.currentId);
+            if (idx !== -1) { users[idx] = { ...users[idx], fullName: form.fullName, username: form.username, role: form.role, phone: form.phone }; if (form.password) users[idx].password_hash = btoa(form.password); }
+          } else { if (!form.password) return; users.push({ id: Date.now(), username: form.username, password_hash: btoa(form.password), fullName: form.fullName, role: form.role, phone: form.phone }); }
+          this.setStore('users', users);
+          this.loadUsersList();
+          this.userModal.open = false;
+        },
+        editUser(u) { this.openUserModal(u); },
+        deleteUser(id) { if (confirm('Delete this user?')) { let users = this.getStore('users', []); users = users.filter(u => u.id !== id); this.setStore('users', users); this.loadUsersList(); } },
+        loadPermissionsForUser() {
+          if (!this.permissionsSelectedUser) { this.permissionsForUserKeys = []; return; }
+          const perms = this.getStore('permissions', []);
+          const userPerms = perms.filter(p => p.userId == this.permissionsSelectedUser);
+          this.permissionsForUserKeys = userPerms.map(p => p.pageKey);
+        },
+        savePermissions() {
+          if (!this.permissionsSelectedUser) return;
+          let perms = this.getStore('permissions', []);
+          perms = perms.filter(p => p.userId != this.permissionsSelectedUser);
+          for (const key of this.permissionsForUserKeys) { perms.push({ userId: this.permissionsSelectedUser, pageKey: key, allowed: 1 }); }
+          this.setStore('permissions', perms);
+          this.permissionsStatusMessage = 'Permissions saved';
+          setTimeout(() => this.permissionsStatusMessage = '', 2000);
+        },
+        updateProfile() {
+          const users = this.getStore('users', []);
+          const idx = users.findIndex(u => u.id == this.currentUser.id);
+          if (idx !== -1) {
+            if (this.profile.fullName) users[idx].fullName = this.profile.fullName;
+            if (this.profile.phone) users[idx].phone = this.profile.phone;
+            if (this.profile.newPassword) users[idx].password_hash = btoa(this.profile.newPassword);
+            this.setStore('users', users);
+            this.currentUser = users[idx];
+            this.settingsStatusMessage = 'Profile updated'; this.settingsStatusType = 'success';
+            setTimeout(() => this.settingsStatusMessage = '', 2000);
+          }
+        },
+        loadSettings() {
+          const saved = this.getStore('settings', {});
+          const defaults = {
+            shopName: 'Kiryana Store', shopPhone: '', shopAddress: '', receiptFooter: 'Thank you!',
+            showCashInHand: true, autoPrint: false, defaultPaymentMethod: 'cash',
+            barcodeTerminator: 'Enter', barcodePrefix: '', autoNavigateOnScan: true,
+            pageZoom: 100
+          };
+          this.settings = { ...defaults, ...saved };
+          this.applyZoom();
+        },
+        saveSettings() {
+          this.setStore('settings', this.settings);
+          this.settingsStatusMessage = 'Settings saved'; this.settingsStatusType = 'success';
+          setTimeout(() => this.settingsStatusMessage = '', 2000);
+          this.applyZoom();
+        },
+        backupData() {
+          const data = {
+            products: this.allProducts, customers: this.customers, suppliers: this.suppliers,
+            sales: this.getStore('sales', []), purchases: this.getStore('purchases', []), ledgers: this.getStore('ledgers', {}),
+            settings: this.settings, jazzcash: { balance: this.jazzcash.balance, transactions: this.jazzcash.transactions, initialSet: this.jazzcash.initialSet },
+            paymentHistory: this.getStore('paymentHistory', []), users: this.getStore('users', [])
+          };
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `pos_backup_${new Date().toISOString().slice(0,19)}.json`;
+          a.click();
+          this.backupRestoreMessage = 'Backup created'; this.backupRestoreType = 'success';
+          setTimeout(() => this.backupRestoreMessage = '', 3000);
+        },
+        restoreData(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = JSON.parse(e.target.result);
+              if (data.products) this.setStore('products', data.products);
+              if (data.customers) this.setStore('customers', data.customers);
+              if (data.suppliers) this.setStore('suppliers', data.suppliers);
+              if (data.sales) this.setStore('sales', data.sales);
+              if (data.ledgers) this.setStore('ledgers', data.ledgers);
+              if (data.settings) { this.settings = { ...this.settings, ...data.settings }; this.setStore('settings', this.settings); }
+              if (data.jazzcash) { this.jazzcash.balance = data.jazzcash.balance || 0; this.jazzcash.transactions = data.jazzcash.transactions || []; this.jazzcash.initialSet = data.jazzcash.initialSet || false; this.saveJazzcashData(); }
+              if (data.paymentHistory) this.setStore('paymentHistory', data.paymentHistory);
+              if (data.users) this.setStore('users', data.users);
+              this.loadProducts(); this.loadCustomers(); this.loadSuppliers(); this.loadDashboardData(); this.loadPaymentHistory();
+              this.backupRestoreMessage = 'Restore success! Reloading'; this.backupRestoreType = 'success';
+              setTimeout(() => location.reload(), 1500);
+            } catch (err) { this.backupRestoreMessage = 'Invalid backup file'; this.backupRestoreType = 'error'; }
+          };
+          reader.readAsText(file);
+        },
+
+        testBarcodeScanner() {
+          this.infoModal = { open: true, title: 'Barcode Scanner Setup', message: 'Ensure USB scanner is connected. Focus on the search field in Smart Billing, or scan anywhere – the system will detect the barcode. Configure terminator key and prefix in Settings if needed.' };
+        },
+        testPrinter() {
+          this.receiptData = { id: 'TEST-' + Date.now(), date: new Date().toLocaleString(), items: [{ name: 'Test Product', quantity: 1, sellingPrice: 100 }], total: 100, paid: 100, loanAmount: 0 };
+          setTimeout(() => window.print(), 300);
+        },
+        loadAnalytics() {
+          const sales = this.getStore('sales', []);
+          const now = new Date();
+          let start, end;
+          if (this.analyticsPeriod === 'today') { start = new Date(now.getFullYear(), now.getMonth(), now.getDate()); end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59); }
+          else if (this.analyticsPeriod === 'week') { const day = now.getDay(); start = new Date(now); start.setDate(now.getDate() - day); start.setHours(0,0,0,0); end = new Date(); end.setHours(23,59,59,999); }
+          else { start = new Date(now.getFullYear(), now.getMonth(), 1); end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59); }
+          const filtered = sales.filter(s => { const d = new Date(s.date); return d >= start && d <= end; });
+          const totalSales = filtered.reduce((a, b) => a + (b.total || 0), 0);
+          const profit = filtered.reduce((a, b) => a + (b.profit || 0), 0);
+          this.analytics.totalSales = totalSales; this.analytics.profit = profit;
+          const prodQty = {};
+          for (const s of filtered) for (const it of (s.items || [])) prodQty[it.id] = (prodQty[it.id] || 0) + (it.quantity || 0);
+          const top = Object.entries(prodQty).sort((a, b) => b[1] - a[1]).slice(0, 5);
+          let html = '<ol class="list-decimal pl-5 space-y-1">';
+          if (top.length === 0) html += '<li class="text-slate-400">No data</li>';
+          for (const [pid, qty] of top) {
+            const p = this.allProducts.find(p => String(p.id) === String(pid));
+            if (p) html += `<li class="text-slate-700"><span class="font-medium">${p.name}</span> <span class="text-slate-400 text-xs">- ${qty} ${p.unit}</span></li>`;
+          }
+          html += '</ol>';
+          this.analytics.topProductsHtml = html;
+          setTimeout(() => this.renderComparisonChart(filtered), 100);
+        },
+        renderComparisonChart(salesData) {
+          try {
+            const ctx = document.getElementById('comparisonChart')?.getContext('2d');
+            if (!ctx) return;
+            let labels = [], values = [], tooltipLabels = [];
+            const now = new Date();
+            if (this.analyticsPeriod === 'today') {
+              const hourly = Array(24).fill(0);
+              for (const s of salesData) { const h = new Date(s.date).getHours(); if (h>=0) hourly[h] += (s.total || 0); }
+              labels = Array.from({length:24}, (_,i) => i+':00');
+              for (let h=0; h<24; h++) { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h); tooltipLabels.push(d.toLocaleDateString('en-US', {month:'short', day:'numeric'}) + ', ' + (h<10?'0':'')+h+':00'); }
+              values = hourly;
+            } else if (this.analyticsPeriod === 'week') {
+              const daily = Array(7).fill(0), days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+              for (const s of salesData) { const d = new Date(s.date).getDay(); if (d>=0) daily[d] += (s.total || 0); }
+              labels = days;
+              const day = now.getDay();
+              const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - day);
+              for (let i=0; i<7; i++) { const dt = new Date(startOfWeek); dt.setDate(startOfWeek.getDate()+i); tooltipLabels.push(days[i] + ', ' + dt.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})); }
+              values = daily;
+            } else {
+              const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+              const daily = Array(daysInMonth).fill(0);
+              for (const s of salesData) { const d = new Date(s.date).getDate(); if (d>=1) daily[d-1] += (s.total || 0); }
+              labels = Array.from({length:daysInMonth}, (_,i) => i+1);
+              for (let i=0; i<daysInMonth; i++) { const dt = new Date(now.getFullYear(), now.getMonth(), i+1); tooltipLabels.push(dt.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})); }
+              values = daily;
+            }
+            if (this.comparisonChart) this.comparisonChart.destroy();
+            this.comparisonChart = new Chart(ctx, {
+              type: 'bar', data: { labels, datasets: [{ label: 'Sales (PKR)', data: values, backgroundColor: 'rgba(16,185,129,0.7)', borderColor: 'rgba(4,120,87,1)', borderWidth: 1, borderRadius: 6, borderSkipped: false }] },
+              options: {
+                responsive: true, maintainAspectRatio: true,
+                plugins: {
+                  tooltip: {
+                    callbacks: {
+                      label: (ctx) => {
+                        const idx = ctx.dataIndex;
+                        let pk = ctx.raw.toLocaleString();
+                        return 'PKR ' + pk + (tooltipLabels[idx] ? ' - ' + tooltipLabels[idx] : '');
+                      }
+                    }
+                  },
+                  legend: { display: false }
+                },
+                scales: {
+                  y: { beginAtZero: true, ticks: { callback: (v) => 'PKR ' + v.toLocaleString() }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                  x: { grid: { display: false } }
+                },
+                animation: { duration: 800 }
+              }
+            });
+          } catch (e) { console.error(e); }
+        },
+        filteredProducts() {
+          const q = (this.productSearch || '').trim().toLowerCase();
+          if (!q) return this.allProducts.slice(0, 100);
+          return this.allProducts.filter(p => (p.name || '').toLowerCase().includes(q) || (p.barcode || '').includes(q)).slice(0, 100);
+        },
+        openProductModal(product = null) {
+          if (product) { this.productModal.editing = true; this.productModal.currentId = product.id; this.productModal.form = { ...product }; }
+          else { this.productModal.editing = false; this.productModal.form = { name: '', barcode: Math.floor(Math.random()*1000000).toString(), unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1 }; }
+          this.productModal.open = true;
+        },
+        editProduct(p) { this.openProductModal(p); },
+        saveProduct() {
+          const form = this.productModal.form;
+          if (!form.name) return;
+          let prods = [...this.allProducts];
+          if (this.productModal.editing) { const idx = prods.findIndex(p => p.id === this.productModal.currentId); if (idx !== -1) prods[idx] = { ...prods[idx], ...form }; }
+          else { prods.push({ id: Date.now(), ...form }); }
+          this.setStore('products', prods);
+          this.allProducts = prods;
+          this.productModal.open = false;
+          this.productsStatusMessage = 'Product saved'; this.productsStatusType = 'success';
+          setTimeout(() => this.productsStatusMessage = '', 2000);
+          this.loadDashboardLowStock();
+        },
+        promptDelete(id) { this.deleteConfirm.open = true; this.deleteConfirm.productId = id; },
+        confirmDelete() {
+          const id = this.deleteConfirm.productId;
+          let prods = this.getStore('products', []);
+          prods = prods.filter(p => p.id != id);
+          this.setStore('products', prods);
+          this.allProducts = prods;
+          this.deleteConfirm.open = false;
+          this.deleteConfirm.productId = null;
+          this.productsStatusMessage = 'Product deleted'; this.productsStatusType = 'success';
+          setTimeout(() => this.productsStatusMessage = '', 2000);
+          this.loadDashboardLowStock();
+        },
+        logout() { localStorage.removeItem('pos_auth'); location.reload(); },
+      }
+    }
+  </script>
+</body>
+</html>
