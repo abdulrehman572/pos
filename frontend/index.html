@@ -308,7 +308,6 @@
                 <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><i class="fas fa-wallet text-amber-600"></i></div>
               </div>
               <p class="text-2xl font-bold text-amber-700">PKR <span x-text="dashboard.cashInHand.toLocaleString()"></span></p>
-              <!-- Add initial cash when zero -->
               <div x-show="dashboard.cashInHand == 0" class="mt-3">
                 <div class="flex gap-2 items-center">
                   <input type="number" x-model="addCashAmount" min="1" placeholder="Enter initial cash" class="p-2 border border-slate-200 rounded-lg w-full text-sm">
@@ -522,7 +521,6 @@
             <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-slate-800">📒 Customer Khata</h2><button @click="openCustomerModal('khata')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm">+ Add Customer</button></div>
             <select x-model="khata.selectedCustomer" @change="loadCustomerLedger" class="w-full p-3 border border-slate-200 rounded-xl mb-5 bg-slate-50 text-slate-700"><option value="">-- Select Customer --</option><template x-for="c in customers"><option :value="c.id" x-text="c.name + ' (Phone: ' + (c.phone||'N/A') + ' | Due: PKR ' + (c.balance||0).toLocaleString() + ')'"></option></template></select>
             
-            <!-- Assign Credit to Customer Section -->
             <div x-show="khata.selectedCustomer" class="mb-5 p-4 bg-amber-50 rounded-xl border border-amber-200">
               <h4 class="text-sm font-semibold text-amber-800 mb-2">📌 Assign Credit to Customer</h4>
               <div class="flex gap-2 items-end">
@@ -591,6 +589,59 @@
               </template>
             </div>
             <div x-show="productsStatusMessage" class="mt-4 p-3 rounded-xl text-center font-medium" :class="{'bg-emerald-50 text-emerald-700': productsStatusType==='success', 'bg-rose-50 text-rose-700': productsStatusType==='error'}" x-text="productsStatusMessage"></div>
+          </div>
+        </div>
+
+        <!-- ================= COMPANIES (NEW) ================= -->
+        <div x-show="currentPage === 'companies'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+          <div class="bg-white rounded-2xl shadow-sm p-6">
+            <div class="flex justify-between items-center flex-wrap gap-3 mb-5">
+              <h2 class="text-2xl font-bold text-slate-800">🏢 Companies & Products</h2>
+            </div>
+            <div class="mb-5">
+              <label class="block text-sm font-medium text-slate-600 mb-2">Select Company</label>
+              <select x-model="companiesSelectedCompany" class="w-full md:w-80 p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700">
+                <option value="">-- All Companies --</option>
+                <template x-for="c in companyNames"><option :value="c" x-text="c"></option></template>
+              </select>
+            </div>
+
+            <div x-show="companiesSelectedCompany !== ''">
+              <h3 class="text-lg font-semibold text-slate-700 mb-3">Products of <span x-text="companiesSelectedCompany" class="text-emerald-600"></span></h3>
+              <div class="table-wrapper">
+                <table class="min-w-full text-sm">
+                  <thead class="bg-slate-50 rounded-lg">
+                    <tr>
+                      <th class="px-4 py-2.5 text-left font-semibold text-slate-600">Product</th>
+                      <th class="px-4 py-2.5 text-center font-semibold text-slate-600">Barcode</th>
+                      <th class="px-4 py-2.5 text-center font-semibold text-slate-600">Unit</th>
+                      <th class="px-4 py-2.5 text-center font-semibold text-slate-600">Stock</th>
+                      <th class="px-4 py-2.5 text-right font-semibold text-slate-600">Cost</th>
+                      <th class="px-4 py-2.5 text-right font-semibold text-slate-600">MRP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="p in filteredCompanyProducts">
+                      <tr class="border-b border-slate-100 hover:bg-slate-50 transition">
+                        <td class="px-4 py-2.5 font-medium text-slate-700" x-text="p.name"></td>
+                        <td class="text-center text-slate-500" x-text="p.barcode"></td>
+                        <td class="text-center text-slate-500" x-text="p.unit"></td>
+                        <td class="text-center font-medium" :class="{'text-rose-600': p.stock <= p.lowStockThreshold, 'text-slate-600': p.stock > p.lowStockThreshold}" x-text="p.stock"></td>
+                        <td class="text-right text-slate-600">PKR <span x-text="p.purchasePrice"></span></td>
+                        <td class="text-right text-slate-600">PKR <span x-text="p.sellingPrice"></span></td>
+                      </tr>
+                    </template>
+                    <tr x-show="filteredCompanyProducts.length === 0">
+                      <td colspan="6" class="text-center py-10 text-slate-400">No products found for this company.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div x-show="companiesSelectedCompany === ''" class="p-10 text-center text-slate-400 bg-slate-50 rounded-xl">
+              <i class="fas fa-building text-4xl mb-3 block opacity-40"></i>
+              <p>Select a company to view its products.</p>
+            </div>
           </div>
         </div>
 
@@ -839,6 +890,7 @@
           <div><label class="text-sm font-medium text-slate-600">Product Name</label><input type="text" x-model="productModal.form.name" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
           <div><label class="text-sm font-medium text-slate-600">Barcode</label><input type="text" x-model="productModal.form.barcode" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
           <div><label class="text-sm font-medium text-slate-600">Unit</label><input type="text" x-model="productModal.form.unit" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
+          <div><label class="text-sm font-medium text-slate-600">Company Name</label><input type="text" x-model="productModal.form.companyName" placeholder="e.g., Nestle, Unilever" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
           <div><label class="text-sm font-medium text-slate-600">Purchase Price (PKR)</label><input type="number" step="any" x-model="productModal.form.purchasePrice" min="0" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
           <div><label class="text-sm font-medium text-slate-600">Selling Price (PKR)</label><input type="number" step="any" x-model="productModal.form.sellingPrice" min="0" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
           <div><label class="text-sm font-medium text-slate-600">Stock</label><input type="number" step="any" x-model="productModal.form.stock" min="0" class="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50"></div>
@@ -920,7 +972,7 @@
         userModal: { open: false, editing: false, form: { fullName: '', username: '', password: '', role: 'seller', phone: '' }, currentId: null },
         profile: { fullName: '', phone: '', newPassword: '' },
         dashboard: { todaySalesTotal: 0, todayInvoices: 0, cashInHand: 0, lowStockCount: 0, lowStock: [], topProductToday: { name: '', qty: 0, unit: '', image: '' } },
-        addCashAmount: 0, // for manual cash addition
+        addCashAmount: 0,
         bill: { search: '', searchResults: [], cart: [], total: 0, discountAmount: 0, paymentMethod: 'cash', amountPaid: 0, loanCustomerId: '', statusMessage: '', statusType: '', changeAmount: 0 },
         purchase: { supplierId: '', selectedProductId: '', customPrice: 0, quantity: 1, items: [], total: 0, statusMessage: '', statusType: '' },
         khata: { selectedCustomer: null, ledger: [], paymentAmount: 0, paymentMethodType: 'cash', creditAmount: 0, statusMessage: '', statusType: '' },
@@ -928,6 +980,7 @@
         suppliers: [],
         customers: [],
         productSearch: '',
+        companiesSelectedCompany: '',
         deleteConfirm: { open: false, productId: null },
         clearJazzcashConfirm: { open: false },
         clearTxConfirm: { open: false },
@@ -938,13 +991,13 @@
           showCashInHand: true, autoPrint: false, defaultPaymentMethod: 'cash',
           barcodeTerminator: 'Enter', barcodePrefix: '', autoNavigateOnScan: true,
           pageZoom: 100,
-          manualCashInHand: 0 // new setting for manual cash
+          manualCashInHand: 0
         },
         settingsStatusMessage: '', settingsStatusType: '',
         productsStatusMessage: '', productsStatusType: '',
         productModal: {
           open: false, editing: false,
-          form: { name: '', barcode: '', unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '' },
+          form: { name: '', barcode: '', unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '', companyName: '' },
           currentId: null
         },
         customerModal: { open: false, form: {}, returnContext: null },
@@ -963,6 +1016,7 @@
           { page: 'purchase', label: 'Stock Purchase', icon: 'fas fa-truck-loading' },
           { page: 'khata', label: 'Customer Khata', icon: 'fas fa-users' },
           { page: 'products', label: 'Product Master', icon: 'fas fa-boxes' },
+          { page: 'companies', label: 'Companies', icon: 'fas fa-building' },
           { page: 'analytics', label: 'Analytics', icon: 'fas fa-chart-line' },
           { page: 'payments', label: 'Payment History', icon: 'fas fa-history' },
           { page: 'jazzcash', label: 'JazzCash Wallet', icon: 'fas fa-coins' },
@@ -988,11 +1042,24 @@
         },
         isMobileCheck() { return window.innerWidth < 1024; },
 
+        get companyNames() {
+          const names = this.allProducts.map(p => p.companyName).filter(Boolean);
+          return [...new Set(names)];
+        },
+        get filteredCompanyProducts() {
+          if (!this.companiesSelectedCompany) return [];
+          return this.allProducts.filter(p => p.companyName === this.companiesSelectedCompany);
+        },
+
         init() {
           const key = 'pos_firstUse';
           let firstUse = localStorage.getItem(key);
-          if (!firstUse) { firstUse = new Date().toISOString(); localStorage.setItem(key, firstUse); }
-          const diffDays = (new Date() - new Date(firstUse)) / (1000 * 60 * 60 * 24);
+          let trialStart = new Date(firstUse);
+          if (!firstUse || isNaN(trialStart.getTime())) {
+            trialStart = new Date();
+            localStorage.setItem(key, trialStart.toISOString());
+          }
+          const diffDays = (new Date() - trialStart) / (1000 * 60 * 60 * 24);
           this.isLocked = diffDays > 6;
           if (this.isLocked) return;
 
@@ -1049,15 +1116,16 @@
           if (page === 'analytics') this.loadAnalytics();
           if (page === 'payments') this.loadPaymentHistory();
           if (page === 'users' && this.currentUser.role === 'admin') this.loadUsersList();
+          if (page === 'companies') this.companiesSelectedCompany = '';
         },
         getStore(key, def) { try { const v = localStorage.getItem(`pos_${key}`); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
         setStore(key, val) { localStorage.setItem(`pos_${key}`, JSON.stringify(val)); },
 
         loadDemoData() {
           if (!localStorage.getItem('pos_products')) localStorage.setItem('pos_products', JSON.stringify([
-            { id: 1, name: 'Basmati Rice', barcode: '8901', unit: 'kg', purchasePrice: 120, sellingPrice: 150, stock: 45, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '' },
-            { id: 2, name: 'Sugar', barcode: '8902', unit: 'kg', purchasePrice: 70, sellingPrice: 90, stock: 8, lowStockThreshold: 10, soldType: 'open', smallerUnit: 'g', conversionFactor: 1000, image: '' },
-            { id: 3, name: 'Cooking Oil', barcode: '8903', unit: 'liter', purchasePrice: 200, sellingPrice: 250, stock: 20, lowStockThreshold: 5, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '' }
+            { id: 1, name: 'Basmati Rice', barcode: '8901', unit: 'kg', purchasePrice: 120, sellingPrice: 150, stock: 45, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '', companyName: 'National Foods' },
+            { id: 2, name: 'Sugar', barcode: '8902', unit: 'kg', purchasePrice: 70, sellingPrice: 90, stock: 8, lowStockThreshold: 10, soldType: 'open', smallerUnit: 'g', conversionFactor: 1000, image: '', companyName: 'Shakarganj' },
+            { id: 3, name: 'Cooking Oil', barcode: '8903', unit: 'liter', purchasePrice: 200, sellingPrice: 250, stock: 20, lowStockThreshold: 5, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '', companyName: 'Dalda' }
           ]));
           if (!localStorage.getItem('pos_customers')) localStorage.setItem('pos_customers', JSON.stringify([
             { id: 101, name: 'Ramesh Sharma', phone: '9812345678', balance: 1200 },
@@ -1084,6 +1152,7 @@
             if (!p.smallerUnit) p.smallerUnit = '';
             if (!p.conversionFactor) p.conversionFactor = 1;
             if (!p.image) p.image = '';
+            if (!p.companyName) p.companyName = '';
           });
           this.allProducts = prods;
           this.setStore('products', prods);
@@ -1264,7 +1333,7 @@
           const code = this.unknownBarcodeModal.code;
           this.unknownBarcodeModal.open = false;
           this.productModal.editing = false;
-          this.productModal.form = { name: '', barcode: code, unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '' };
+          this.productModal.form = { name: '', barcode: code, unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '', companyName: '' };
           this.productModal.currentId = null;
           this.productModal.open = true;
         },
@@ -1425,7 +1494,7 @@
         getProductUnit(pid) { const p = this.allProducts.find(p => p.id == pid); return p ? p.unit || 'unit' : 'unit'; },
         openProductModalForPurchase() {
           this.productModal.editing = false;
-          this.productModal.form = { name: '', barcode: Math.floor(Math.random() * 1000000).toString(), unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '' };
+          this.productModal.form = { name: '', barcode: Math.floor(Math.random() * 1000000).toString(), unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '', companyName: '' };
           this.productModal.open = true;
         },
         openCustomerModal(ctx) { this.customerModal.form = {}; this.customerModal.open = true; this.customerModal.returnContext = ctx; },
@@ -1613,7 +1682,7 @@
             this.productModal.form = { ...product, image: product.image || '' };
           } else {
             this.productModal.editing = false;
-            this.productModal.form = { name: '', barcode: Math.floor(Math.random()*1000000).toString(), unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '' };
+            this.productModal.form = { name: '', barcode: Math.floor(Math.random()*1000000).toString(), unit: 'piece', purchasePrice: 0, sellingPrice: 0, stock: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '', companyName: '' };
           }
           this.productModal.open = true;
         },
