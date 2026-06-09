@@ -1,12 +1,18 @@
 Client install instructions
 
 1) Copy the entire `KiryanaPOS` folder to the client's machine (USB, network share, or zip).
-2) Open an elevated PowerShell (Run as Administrator).
+2) Open an elevated PowerShell (Run as Administrator), or if you are running from VS Code open a terminal in the extracted folder.
 3) Change directory to the copied folder, e.g.:
 
 ```powershell
 cd C:\KiryanaPOS
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-client.ps1
+```
+
+If you are inside VS Code, you can also run:
+
+```powershell
+.\install-client-vscode.ps1
 ```
 
 This will copy files to `C:\KiryanaPOS`, create a public Desktop shortcut `Kiryana POS`, and add a firewall rule for port 3000.
