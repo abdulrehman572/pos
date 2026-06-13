@@ -309,7 +309,7 @@
                 </div>
                 <div class="logo-text" x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()">
                     <p x-text="settings.shopName"></p>
-                    <span>POS</span>
+                    <span>Point of Sale</span>
                 </div>
             </div>
             <nav class="sidebar-nav">
@@ -563,7 +563,6 @@
                                             <div style="display:flex;align-items:center;gap:6px;">
                                                 <button @click="decrementItem(idx)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:700;">−</button>
                                                 <input type="number" x-model="item.quantity" @input="updateQuantityFromInput(idx)" style="width:62px;text-align:center;padding:4px 6px;font-size:.82rem;" :step="item.soldType==='open'?'0.1':'1'">
-                                                <input x-show="item.soldType==='open'" type="number" placeholder="Price (PKR)" @input="onPriceInput(idx, $event.target.value)" style="width:90px;padding:4px 6px;font-size:.82rem;margin-left:6px;">
                                                 <button @click="incrementItem(idx)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-glow);color:var(--accent);cursor:pointer;font-weight:700;">+</button>
                                             </div>
                                             <span class="font-mono font-bold text-sm text-accent">PKR <span x-text="getCartItemTotal(item).toLocaleString()"></span></span>
@@ -1152,7 +1151,7 @@
                             <div class="section-label">Shop Information</div>
                             <div class="field-row mb-3">
                                 <div class="field"><label>Shop Name</label><input type="text" x-model="settings.shopName"></div>
-                                <div class="field"><label>Phone Number</label><input type="text" x-model="settings.shopPhone" placeholder="e.g. 0300-1234567 or +92 300 1234567" pattern="(\+92|0)3[0-9]{2}[- ]?[0-9]{7}"></div>
+                                <div class="field"><label>Phone Number</label><input type="text" x-model="settings.shopPhone"></div>
                             </div>
                             <div class="field mb-3"><label>Shop Address</label><textarea x-model="settings.shopAddress" rows="2"></textarea></div>
                             <div class="field-row">
@@ -1180,8 +1179,8 @@
                                         <button type="button" class="btn btn-secondary btn-sm" @click="$refs.receiptLogoInput.click()"><i class="fas fa-folder-open"></i> Browse</button>
                                         <button type="button" class="btn btn-ghost btn-sm" @click="settings.receiptLogoDataUrl='';saveSettings()" x-show="settings.receiptLogoDataUrl"><i class="fas fa-times"></i> Clear</button>
                                         <input x-ref="receiptLogoInput" type="file" accept="image/*" style="position:absolute;left:-9999px;width:1px;height:1px;" @change="onReceiptLogoSelect($event)">
-                                    </div>
-                                </div> -->
+                                    </div> -->
+                                </div>
                             </div>
                         </div>
 
@@ -1203,11 +1202,11 @@
                                     </select>
                                 </div>
                             </div>
-                            <!-- <div class="field mb-3">
+                            <div class="field mb-3">
                                 <label>Next Invoice Number (auto-increments)</label>
                                 <input type="number" x-model="settings.lastInvoiceNumber" min="0" readonly style="background:var(--bg);color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace;">
                                 <span class="text-xs text-muted mt-1" style="display:block;">Next invoice will be number: <strong x-text="(settings.lastInvoiceNumber||0)+1"></strong></span>
-                            </div> -->
+                            </div>
                             <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
                                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;">
                                     <input type="checkbox" x-model="settings.autoPrint" style="width:auto;"> Auto-print receipt after sale
@@ -1257,45 +1256,51 @@
                                 <div style="background:var(--surface2);border:1px solid var(--border);padding:12px;border-radius:12px;color:var(--text);margin-top:8px;" x-html="receiptPreviewHtml()"></div>
                             </div>
                         </div>
+
+                        <!-- ═══════════ BACKUP & RESTORE ═══════════ -->
+                        <div class="card mb-4">
+                            <div class="section-label">Backup &amp; Restore</div>
+                            <div class="field-row mb-3">
+                                <div class="field">
+                                    <label>Auto-Backup Frequency</label>
+                                    <select x-model="settings.backupFrequency" @change="saveSettings(); scheduleAutoBackup()">
+                                        <option value="off">Off (Manual Only)</option>
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label>Backup Location (default: C:\Documents)</label>
+                                    <input type="text" x-model="settings.backupLocation" placeholder="C:\Users\Public\Documents" @change="saveSettings()">
+                                </div>
+                            </div>
+                            <div x-show="settings.backupFrequency !== 'off'" class="text-xs text-muted mb-3" style="padding:8px 10px;background:var(--accent-glow);border:1px solid rgba(16,216,122,.2);border-radius:var(--radius-sm);">
+                                <i class="fas fa-info-circle" style="color:var(--accent);margin-right:5px;"></i>
+                                Auto-backup is <strong style="color:var(--accent);" x-text="settings.backupFrequency"></strong>.
+                                Next backup: <strong style="color:var(--accent);" x-text="nextBackupLabel"></strong>.
+                                Backups are downloaded automatically as JSON files to your Downloads folder.
+                            </div>
+                            <div x-show="settings.lastBackupDate" class="text-xs text-muted mb-3">
+                                Last backup: <span style="color:var(--accent);" x-text="settings.lastBackupDate ? new Date(settings.lastBackupDate).toLocaleString() : 'Never'"></span>
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                                <button @click="manualBackup()" class="btn btn-secondary"><i class="fas fa-download"></i> Download Backup Now</button>
+                                <div style="position:relative;">
+                                    <button @click="$refs.restoreInput.click()" class="btn btn-amber"><i class="fas fa-upload"></i> Restore from Backup</button>
+                                    <input x-ref="restoreInput" type="file" accept=".json" style="position:absolute;left:-9999px;width:1px;height:1px;" @change="restoreFromBackup($event)">
+                                </div>
+                            </div>
+                            <div x-show="backupStatusMessage" class="status-bar mt-3" :class="backupStatusType==='success'?'status-success':'status-error'">
+                                <i class="fas" :class="backupStatusType==='success'?'fa-check-circle':'fa-exclamation-circle'"></i>
+                                <span x-text="backupStatusMessage"></span>
+                            </div>
+                        </div>
+
                         <div style="display:flex;gap:8px;">
                             <button @click="saveSettings()" class="btn btn-primary btn-lg" style="flex:1;justify-content:center;"><i class="fas fa-save"></i> Save Settings</button>
                             <button @click="testPrinter()" class="btn btn-secondary btn-lg"><i class="fas fa-print"></i> Test Print</button>
                         </div>
-                        <div class="card mb-4">
-                            <div class="section-label">Backup Settings</div>
-                            <div style="display:flex;gap:12px;flex-direction:column;max-width:520px;">
-                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem;">
-                                    <input type="checkbox" x-model="settings.backup.enabled" style="width:auto;"> Enable automatic backups
-                                </label>
-
-                                <div class="field" style="max-width:320px;">
-                                    <label>Backup Frequency</label>
-                                    <select x-model="settings.backup.frequency">
-                                        <option value="daily">Daily</option>
-                                        <option value="weekly">Weekly</option>
-                                        <option value="monthly">Monthly</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-
-                                <div class="field" x-show="settings.backup.frequency==='custom'">
-                                    <label>Custom Schedule</label>
-                                    <input type="text" x-model="settings.backup.custom" placeholder="E.g. every 2 days or cron expression">
-                                </div>
-
-                                <div class="field">
-                                    <label>Backup Location</label>
-                                    <div style="display:flex;gap:8px;align-items:center;">
-                                        <input type="text" x-model="settings.backup.location" placeholder="Select backup folder..." readonly>
-                                        <button type="button" class="btn btn-secondary btn-sm" @click="$refs.backupFolderInput.click()"><i class="fas fa-folder-open"></i> Select Folder</button>
-                                        <button type="button" class="btn btn-ghost btn-sm" @click="settings.backup.location='';saveSettings()" x-show="settings.backup.location"><i class="fas fa-times"></i> Clear</button>
-                                        <input x-ref="backupFolderInput" type="file" webkitdirectory directory multiple style="position:absolute;left:-9999px;width:1px;height:1px;" @change="chooseBackupLocation($event)">
-                                    </div>
-                                    <div class="text-xs text-muted mt-2">Use Select Folder to choose where backups should be stored. Some browsers may only expose relative folder names.</div>
-                                </div>
-                            </div>
-                        </div>
-
                         <div x-show="settingsStatusMessage" class="status-bar status-success mt-3"><span x-text="settingsStatusMessage"></span></div>
                     </div>
                 </div>
@@ -1369,7 +1374,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="field"><label>Full Name</label><input type="text" x-model="customerModal.form.name" placeholder="Customer full name"></div>
-                    <div class="field"><label>Phone Number</label><input type="text" x-model="customerModal.form.phone" placeholder="e.g. 0300-1234567 or +92 300 1234567" pattern="(\+92|0)3[0-9]{2}[- ]?[0-9]{7}"></div>
+                    <div class="field"><label>Phone Number</label><input type="text" x-model="customerModal.form.phone" placeholder="+92 xxx xxxxxxx"></div>
                     <div class="field"><label>Address</label><input type="text" x-model="customerModal.form.address" placeholder="Optional address"></div>
                 </div>
                 <div class="modal-footer">
@@ -1388,7 +1393,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="field"><label>Supplier Name</label><input type="text" x-model="supplierModal.form.name" placeholder="Company or person name"></div>
-                    <div class="field"><label>Phone Number</label><input type="text" x-model="supplierModal.form.phone" placeholder="e.g. 0300-1234567 or +92 300 1234567" pattern="(\+92|0)3[0-9]{2}[- ]?[0-9]{7}"></div>
+                    <div class="field"><label>Phone Number</label><input type="text" x-model="supplierModal.form.phone" placeholder="+92 xxx xxxxxxx"></div>
                     <div class="field"><label>Address</label><input type="text" x-model="supplierModal.form.address" placeholder="Optional address"></div>
                 </div>
                 <div class="modal-footer">
@@ -1549,7 +1554,7 @@
                 <div style="display:flex;justify-content:space-between;"><span>Paid:</span><span>PKR <span x-text="receiptData.paid?.toLocaleString()"></span></span></div>
             </div>
             <div style="text-align:center;font-size:10px;margin-top:8px;border-top:1px dashed #000;padding-top:6px;" x-text="settings.receiptFooter"></div>
-            <div style="text-align:center;font-size:9px;margin-top:6px;color:#6b7280;">Khubaib Enterprises — Custom web, mobile & software solutions. Call: 0318 437 5221</div>
+            <div style="text-align:center;font-size:9px;margin-top:6px;color:#6b7280;">Contact Khubaib Enterprises: 03184375221</div>
         </div>
     </div>
 
@@ -1583,31 +1588,6 @@
                     selectedCustomer: null, ledger: [], paymentAmount: 0,
                     paymentMethodType: 'cash', creditAmount: 0, statusMessage: '', statusType: ''
                 },
-
-                // --- Input formatting & validation helpers (Pakistan locale) ---
-                normalizePakistanPhone(phone) {
-                    if (!phone) return null;
-                    let s = String(phone).replace(/\D/g,'');
-                    if (s.startsWith('0092')) s = '0' + s.slice(4);
-                    if (s.startsWith('92') && s.length===12) s = '0' + s.slice(2);
-                    if (s.length===10 && s.startsWith('3')) s = '0' + s; // 3001234567 -> 03001234567
-                    if (s.length===11 && s.startsWith('03')) return s;
-                    return null;
-                },
-                formatPakistanPhone(phone) {
-                    const s = this.normalizePakistanPhone(phone);
-                    if (!s) return phone || '';
-                    return s.slice(0,4) + '-' + s.slice(4);
-                },
-                validatePakistanPhone(phone) {
-                    return !!this.normalizePakistanPhone(phone);
-                },
-                formatCurrencyPKR(amount) {
-                    if (amount === null || amount === undefined || amount === '') return '';
-                    try { return new Intl.NumberFormat('en-PK', { style:'currency', currency:'PKR' }).format(Number(amount)); } catch(e) { return amount; }
-                },
-                ensurePositiveNumber(v) { const n = Number(v); return !isNaN(n) && n>=0; },
-
                 allProducts: [],
                 suppliers: [],
                 customers: [],
@@ -1647,9 +1627,13 @@
                     receiptShowCustomer: true, receiptShowFooter: true, showCashInHand: true,
                     autoPrint: false, defaultPaymentMethod: 'cash', barcodeTerminator: 'Enter',
                     pageZoom: 100, manualCashInHand: 0, lastInvoiceNumber: 0,
-                    sidebarLogoDataUrl: '', receiptLogoDataUrl: 'logo/logo.png'
+                    sidebarLogoDataUrl: '', receiptLogoDataUrl: '',
+                    backupFrequency: 'off', backupLocation: 'C:\\Users\\Public\\Documents', lastBackupDate: ''
                 },
                 settingsStatusMessage: '',
+                backupStatusMessage: '',
+                backupStatusType: 'success',
+                autoBackupTimer: null,
                 productModal: {
                     open: false, editing: false, currentId: null,
                     form: {
@@ -1690,6 +1674,20 @@
                 get jazzcashNetFlow() { return this.jazzcashTotalReceived - this.jazzcashTotalSent; },
                 get jazzcashEstimatedProfit() { return Math.round(this.jazzcashTotalReceived * ((this.jazzcash.profitMargin||0)/100)); },
                 get jazzcashEstimatedFee() { return Math.round(this.jazzcashTotalSent * ((this.jazzcash.transactionFee||0)/100)); },
+                get nextBackupLabel() {
+                    let f = this.settings.backupFrequency;
+                    if (!f || f === 'off') return 'N/A';
+                    let last = this.settings.lastBackupDate ? new Date(this.settings.lastBackupDate) : new Date(0);
+                    let next = new Date(last);
+                    if (f === 'daily')   next.setDate(next.getDate() + 1);
+                    if (f === 'weekly')  next.setDate(next.getDate() + 7);
+                    if (f === 'monthly') next.setMonth(next.getMonth() + 1);
+                    let diff = next - new Date();
+                    if (diff <= 0) return 'Now (overdue)';
+                    let h = Math.floor(diff/3600000), d = Math.floor(diff/86400000);
+                    if (d >= 1) return 'in ' + d + ' day' + (d>1?'s':'');
+                    return 'in ' + h + ' hour' + (h>1?'s':'');
+                },
 
                 isMobileCheck() { return window.innerWidth < 1024; },
                 toggleSidebar() {
@@ -1731,11 +1729,6 @@
                     ]));
 
                     this.settings = { ...this.settings, ...this.getStore('settings', {}) };
-                    // Ensure a default receipt logo file path is set so it persists on client installs
-                    if (!this.settings.receiptLogoDataUrl) {
-                        this.settings.receiptLogoDataUrl = 'logo/logo.png';
-                        this.setStore('settings', this.settings);
-                    }
                     this.loadProducts();
                     this.loadCustomers();
                     this.loadSuppliers();
@@ -1749,6 +1742,7 @@
                     this.loadDashboardData();
                     this.loadReports();
                     this.loadAnalytics();
+                    this.scheduleAutoBackup();
                     document.body.style.zoom = this.settings.pageZoom / 100;
 
                     this.liveTime = new Date().toLocaleTimeString('en-PK', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
@@ -1957,11 +1951,7 @@
                     if (!bypassExpiry && this.isProductExpiring(p)) { this.expiryConfirm.product = p; this.expiryConfirm.message = this.expiryMessage(p); this.expiryConfirm.open = true; return; }
                     let ex = this.bill.cart.find(i => i.id === p.id);
                     if (ex) { let inc = ex.soldType==='open' ? 0.1 : 1; ex.quantity = Math.round((ex.quantity+inc)*100)/100; }
-                    else {
-                        // For loose/open items, add one big unit by default (e.g. 1 kg = conversionFactor grams)
-                        const defaultQty = (p.soldType==='open' && p.conversionFactor && p.conversionFactor>0) ? p.conversionFactor : 1;
-                        this.bill.cart.push({ ...p, quantity: defaultQty });
-                    }
+                    else { this.bill.cart.push({ ...p, quantity: 1 }); }
                     this.updateBillTotal();
                 },
                 isProductExpiring(p) {
@@ -2042,23 +2032,6 @@
                     if (item.quantity <= 0) this.bill.cart.splice(idx, 1);
                     this.updateBillTotal();
                 },
-                onPriceInput(idx, val) {
-                    const item = this.bill.cart[idx];
-                    if (!item) return;
-                    const price = parseFloat(val);
-                    if (isNaN(price) || price <= 0) return;
-                    // For open/loose items with a conversionFactor (e.g. grams per big unit):
-                    if (item.soldType === 'open' && item.conversionFactor && item.conversionFactor > 0) {
-                        // price = (quantity * sellingPrice / conversionFactor)
-                        // => quantity = price * conversionFactor / sellingPrice
-                        item.quantity = Math.round((price * item.conversionFactor / item.sellingPrice) * 100) / 100;
-                    } else {
-                        item.quantity = Math.round((price / item.sellingPrice) * 100) / 100;
-                    }
-                    // keep unitPrice as sellingPrice (backend will record unit price per big unit)
-                    item.unitPrice = item.sellingPrice;
-                    this.updateBillTotal();
-                },
                 removeFromCart(idx) { this.bill.cart.splice(idx,1); this.updateBillTotal(); },
                 updateBillTotal() {
                     let gross = this.bill.cart.reduce((s,i) => s+this.getCartItemTotal(i), 0);
@@ -2073,11 +2046,6 @@
 
                 completeSale(print) {
                     if (!this.bill.cart.length) { this.infoModal.title='Empty Cart'; this.infoModal.message='Please add items before completing the sale.'; this.infoModal.open=true; return; }
-                    // Validate items
-                    for (let item of this.bill.cart) {
-                        if (!this.ensurePositiveNumber(item.quantity) || item.quantity <= 0) { this.infoModal.title='Invalid Item Quantity'; this.infoModal.message='One or more items have invalid quantity.'; this.infoModal.open=true; return; }
-                        if (!this.ensurePositiveNumber(item.sellingPrice) || item.sellingPrice < 0) { this.infoModal.title='Invalid Item Price'; this.infoModal.message='One or more items have invalid price.'; this.infoModal.open=true; return; }
-                    }
                     let total = this.bill.total, paid = parseFloat(this.bill.amountPaid)||0, loanAmount = 0;
                     if (this.bill.paymentMethod==='loan') { paid=0; loanAmount=total; } else if (paid < total) loanAmount=total-paid;
                     if (loanAmount>0 && !this.bill.loanCustomerId) { this.infoModal.title='Customer Required'; this.infoModal.message='Please select a customer for credit sales.'; this.infoModal.open=true; return; }
@@ -2126,7 +2094,7 @@
                     const customerHtml = this.settings.receiptShowCustomer ? `<div style="font-size:11px;margin-top:4px;text-align:center;color:#6b7280;">Customer: ${r.customerName||'Walk-in'}</div>` : '';
                     const footerHtml = this.settings.receiptShowFooter ? `<div style="text-align:center;font-size:11px;color:#6b7280;margin-top:14px;">${this.settings.receiptFooter||'Thank you!'}</div>` : '';
                     const layoutClass = this.settings.receiptLayout==='classic' ? 'classic' : this.settings.receiptLayout==='compact' ? 'compact' : 'modern';
-                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title><style>body{margin:0;padding:18px;font-family:Inter,system-ui,sans-serif;background:#f3f4f6;color:#111;}.receipt{max-width:360px;margin:0 auto;background:#fff;padding:18px;border-radius:${layoutClass==='compact'?'12px':'18px'};box-shadow:0 24px 60px rgba(15,23,42,.08);}.header{text-align:center;margin-bottom:14px;}.shop-name{font-size:18px;font-weight:800;margin-bottom:4px;}.shop-detail{font-size:11px;color:#6b7280;line-height:1.5;}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;}th{padding-bottom:10px;text-align:left;color:#6b7280;font-size:10px;}.summary{margin-top:14px;font-size:12px;}.summary-row{display:flex;justify-content:space-between;margin-top:6px;}</style></head><body><div class="receipt"><div class="header">${logoHtml}<div class="shop-name">${this.settings.shopName||'Shop Name'}</div>${addressHtml}<div class="shop-detail">${this.settings.shopPhone||''}</div>${dateHtml}</div><table><thead><tr><th style="width:50%;">Item</th><th style="width:15%;text-align:center;">Qty</th><th style="width:17%;text-align:right;">Rate</th><th style="width:18%;text-align:right;">Total</th></tr></thead><tbody>${rows}</tbody></table><div class="summary"><div class="summary-row"><span>Subtotal</span><span>PKR ${r.subtotal?.toLocaleString()||0}</span></div><div class="summary-row" style="font-weight:700;"><span>Total</span><span>PKR ${r.total?.toLocaleString()||0}</span></div><div class="summary-row"><span>Paid</span><span>PKR ${(r.paid||0).toLocaleString()}</span></div>${r.loanAmount?`<div class="summary-row"><span>Credit</span><span>PKR ${r.loanAmount.toLocaleString()}</span></div>`:''}</div>${paymentHtml}${customerHtml}${footerHtml}<div style="font-size:9px;text-align:center;margin-top:8px;color:#6b7280;">Khubaib Enterprises—For custom web,mobile app&software solutions.Call:03184375221</div></div></body></html>`;
+                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title><style>body{margin:0;padding:18px;font-family:Inter,system-ui,sans-serif;background:#f3f4f6;color:#111;}.receipt{max-width:360px;margin:0 auto;background:#fff;padding:18px;border-radius:${layoutClass==='compact'?'12px':'18px'};box-shadow:0 24px 60px rgba(15,23,42,.08);}.header{text-align:center;margin-bottom:14px;}.shop-name{font-size:18px;font-weight:800;margin-bottom:4px;}.shop-detail{font-size:11px;color:#6b7280;line-height:1.5;}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;}th{padding-bottom:10px;text-align:left;color:#6b7280;font-size:10px;}.summary{margin-top:14px;font-size:12px;}.summary-row{display:flex;justify-content:space-between;margin-top:6px;}</style></head><body><div class="receipt"><div class="header">${logoHtml}<div class="shop-name">${this.settings.shopName||'Shop Name'}</div>${addressHtml}<div class="shop-detail">${this.settings.shopPhone||''}</div>${dateHtml}</div><table><thead><tr><th style="width:50%;">Item</th><th style="width:15%;text-align:center;">Qty</th><th style="width:17%;text-align:right;">Rate</th><th style="width:18%;text-align:right;">Total</th></tr></thead><tbody>${rows}</tbody></table><div class="summary"><div class="summary-row"><span>Subtotal</span><span>PKR ${r.subtotal?.toLocaleString()||0}</span></div><div class="summary-row" style="font-weight:700;"><span>Total</span><span>PKR ${r.total?.toLocaleString()||0}</span></div><div class="summary-row"><span>Paid</span><span>PKR ${(r.paid||0).toLocaleString()}</span></div>${r.loanAmount?`<div class="summary-row"><span>Credit</span><span>PKR ${r.loanAmount.toLocaleString()}</span></div>`:''}</div>${paymentHtml}${customerHtml}${footerHtml}<div style="font-size:9px;text-align:center;margin-top:8px;color:#6b7280;">Contact Khubaib Enterprises: 03184375221</div></div></body></html>`;
                     const win = window.open('','_blank','width=420,height=680');
                     win.document.write(html);
                     win.document.close();
@@ -2134,10 +2102,9 @@
                 },
 
                 receiptPreviewHtml() {
-                    // Hide logo in preview; printing will still include logo
                     const receiptLogo = this.settings.receiptLogoDataUrl || 'logo/logo.png';
                     const sample = { shopName: this.settings.shopName||'Shop Name', shopAddress: this.settings.shopAddress||'Shop Address', phone: this.settings.shopPhone||'', date: new Date().toLocaleString(), footer: this.settings.receiptFooter||'Thank you!' };
-                    const logoHtml = ``;
+                    const logoHtml = `<img src="${receiptLogo}" alt="Logo" style="max-width:88px;display:block;margin:0 auto 12px;" onerror="this.style.display='none'">`;
                     const addressHtml = this.settings.receiptShowAddress ? `<div style="font-size:11px;color:#6b7280;">${sample.shopAddress}</div>` : '';
                     const dateHtml = this.settings.receiptShowDate ? `<div style="font-size:10px;color:#9ca3af;margin-top:10px;">${sample.date}</div>` : '';
                     const paymentHtml = this.settings.receiptShowPaymentMethod ? `<div style="font-size:11px;margin-top:8px;text-align:center;color:#6b7280;">Payment: Cash</div>` : '';
@@ -2172,32 +2139,29 @@
                 },
                 recordPayment() {
                     let amt = parseFloat(this.khata.paymentAmount);
-                    if (isNaN(amt) || amt <= 0) { alert('Enter a valid payment amount greater than 0'); return; }
-                    if (!this.khata.selectedCustomer) { alert('Select a customer to record payment'); return; }
-                    let c = this.customers.find(c => c.id===this.khata.selectedCustomer);
-                    if (!c) { alert('Customer not found'); return; }
-                    c.balance = Math.max(0,(c.balance||0)-amt);
-                    this.setStore('customers',this.customers);
-                    let l = this.getStore('ledgers',{}); if (!l[c.id]) l[c.id]=[];
-                    l[c.id].push({ id:Date.now(), date:new Date().toISOString(), type:'Payment ('+this.khata.paymentMethodType+')', amount:amt, category:'payment' });
-                    this.setStore('ledgers',l);
-                    this.addPaymentHistory('Khata Payment', this.khata.paymentMethodType, amt, 'Customer: '+c.name);
-                    this.loadCustomerLedger();
-                    this.loadCustomers();
-                    this.loadPaymentHistory();
-                    this.khata.paymentAmount=0;
-                    this.khata.statusMessage='Payment recorded successfully';
-                    setTimeout(()=>this.khata.statusMessage='',2000);
+                    if (amt>0 && this.khata.selectedCustomer) {
+                        let c = this.customers.find(c => c.id===this.khata.selectedCustomer);
+                        if (c) {
+                            c.balance = Math.max(0,(c.balance||0)-amt);
+                            this.setStore('customers',this.customers);
+                            let l = this.getStore('ledgers',{}); if (!l[c.id]) l[c.id]=[];
+                            l[c.id].push({ id:Date.now(), date:new Date().toISOString(), type:'Payment ('+this.khata.paymentMethodType+')', amount:amt, category:'payment' });
+                            this.setStore('ledgers',l);
+                            this.addPaymentHistory('Khata Payment', this.khata.paymentMethodType, amt, 'Customer: '+c.name);
+                            this.loadCustomerLedger();
+                            this.loadCustomers();
+                            this.loadPaymentHistory();
+                            this.khata.paymentAmount=0;
+                            this.khata.statusMessage='Payment recorded successfully';
+                            setTimeout(()=>this.khata.statusMessage='',2000);
+                        }
+                    }
                 },
                 addPurchaseItem() {
-                    let prod = this.allProducts.find(p => p.id==this.purchase.selectedProductId);
-                    if (!prod) { alert('Select a product'); return; }
-                    let qty = parseFloat(this.purchase.quantity) || 0;
-                    if (qty <= 0) { alert('Quantity must be greater than 0'); return; }
-                    let price = parseFloat(this.purchase.customPrice);
-                    if (isNaN(price) || price < 0) price = prod.purchasePrice || 0;
+                    let prod = this.allProducts.find(p => p.id==this.purchase.selectedProductId); if (!prod) return;
+                    let qty = parseFloat(this.purchase.quantity)||1, price = parseFloat(this.purchase.customPrice)||prod.purchasePrice;
                     let ex = this.purchase.items.find(i => i.id===prod.id);
-                    if (ex) ex.quantity = (ex.quantity||0) + qty;
+                    if (ex) ex.quantity += qty;
                     else this.purchase.items.push({ id:prod.id, name:prod.name, unit:prod.unit, purchasePrice:price, quantity:qty });
                     this.purchase.total = this.purchase.items.reduce((s,i) => s+(i.purchasePrice*i.quantity), 0);
                     this.purchase.selectedProductId='';
@@ -2344,20 +2308,15 @@
                 editProduct(p) { this.openProductModal(p); },
 
                 saveProduct() {
-                    let form=this.productModal.form; if (!form.name) { alert('Product name is required'); return; }
-                    if (form.barcode && !/^[0-9A-Za-z\-]{3,}$/i.test(form.barcode)) { if (!confirm('Barcode contains unusual characters. Proceed?')) return; }
-                    let purchasePrice = parseFloat(form.purchasePrice);
-                    let sellingPrice = parseFloat(form.sellingPrice);
-                    if (isNaN(purchasePrice) || purchasePrice < 0) { alert('Enter a valid purchase price (>= 0)'); return; }
-                    if (isNaN(sellingPrice) || sellingPrice < 0) { alert('Enter a valid selling price (>= 0)'); return; }
+                    let form=this.productModal.form; if (!form.name) return;
                     let prods=[...this.allProducts];
                     let presentQty=parseFloat(form.presentStock)||0;
                     let newQty=parseFloat(form.newStock)||0;
                     let totalStock=presentQty+newQty;
 
                     // Use new stock prices if new stock is added and prices given, else keep present prices
-                    let finalPurchasePrice=purchasePrice;
-                    let finalSellingPrice=sellingPrice;
+                    let finalPurchasePrice=form.purchasePrice;
+                    let finalSellingPrice=form.sellingPrice;
                     if (newQty>0) {
                         if (parseFloat(form.newPurchasePrice)>0) finalPurchasePrice=parseFloat(form.newPurchasePrice);
                         if (parseFloat(form.newSellingPrice)>0) finalSellingPrice=parseFloat(form.newSellingPrice);
@@ -2393,29 +2352,25 @@
                 },
                 openCustomerModal(ctx) { this.customerModal.form={}; this.customerModal.open=true; this.customerModal.returnContext=ctx; },
                 saveCustomer() {
-                    if (!this.customerModal.form.name) { alert('Customer name is required'); return; }
-                    const phone = this.customerModal.form.phone || '';
-                    if (phone && !this.validatePakistanPhone(phone)) { alert('Invalid Pakistan phone number. Expected format: 03XX-XXXXXXX or +92XXXXXXXXXX'); return; }
-                    const formattedPhone = phone ? this.formatPakistanPhone(phone) : '';
-                    let nc={id:Date.now(),name:this.customerModal.form.name.trim(),phone:formattedPhone,address:(this.customerModal.form.address||'').trim(),balance:0};
-                    this.customers.push(nc);
-                    this.setStore('customers',this.customers);
-                    this.customerModal.open=false;
-                    this.loadCustomers();
-                    if (this.customerModal.returnContext==='khata') { this.khata.selectedCustomer=nc.id; this.loadCustomerLedger(); }
-                    if (this.customerModal.returnContext==='bill') this.bill.loanCustomerId=nc.id;
-                    this.customerModal.returnContext=null;
+                    if (this.customerModal.form.name) {
+                        let nc={id:Date.now(),name:this.customerModal.form.name,phone:this.customerModal.form.phone||'',address:this.customerModal.form.address||'',balance:0};
+                        this.customers.push(nc);
+                        this.setStore('customers',this.customers);
+                        this.customerModal.open=false;
+                        this.loadCustomers();
+                        if (this.customerModal.returnContext==='khata') { this.khata.selectedCustomer=nc.id; this.loadCustomerLedger(); }
+                        if (this.customerModal.returnContext==='bill') this.bill.loanCustomerId=nc.id;
+                        this.customerModal.returnContext=null;
+                    }
                 },
                 openSupplierModal() { this.supplierModal.form={}; this.supplierModal.open=true; },
                 saveSupplier() {
-                    if (!this.supplierModal.form.name) { alert('Supplier name is required'); return; }
-                    const phone = this.supplierModal.form.phone || '';
-                    if (phone && !this.validatePakistanPhone(phone)) { alert('Invalid Pakistan phone number. Expected format: 03XX-XXXXXXX or +92XXXXXXXXXX'); return; }
-                    const formattedPhone = phone ? this.formatPakistanPhone(phone) : '';
-                    this.suppliers.push({id:Date.now(),name:this.supplierModal.form.name.trim(),phone:formattedPhone,address:(this.supplierModal.form.address||'').trim()});
-                    this.setStore('suppliers',this.suppliers);
-                    this.supplierModal.open=false;
-                    this.loadSuppliers();
+                    if (this.supplierModal.form.name) {
+                        this.suppliers.push({id:Date.now(),...this.supplierModal.form});
+                        this.setStore('suppliers',this.suppliers);
+                        this.supplierModal.open=false;
+                        this.loadSuppliers();
+                    }
                 },
                 saveExpense() {
                     let exp={...this.expenseForm,id:Date.now(),amount:parseFloat(this.expenseForm.amount)||0};
@@ -2484,9 +2439,6 @@
                     this.loadDashboardData(); this.loadPaymentHistory();
                 },
                 saveSettings() {
-                    // Validate shop phone if provided
-                    if (this.settings.shopPhone && !this.validatePakistanPhone(this.settings.shopPhone)) { alert('Invalid shop phone number. Use 03XX-XXXXXXX or +92XXXXXXXXXX'); return; }
-                    if (this.settings.shopPhone) this.settings.shopPhone = this.formatPakistanPhone(this.settings.shopPhone);
                     this.setStore('settings',this.settings);
                     document.body.style.zoom=this.settings.pageZoom/100;
                     this.settingsStatusMessage='Settings saved successfully';
@@ -2495,6 +2447,109 @@
                 testPrinter() {
                     this.receiptData={id:'TEST',date:new Date().toLocaleString(),items:[{name:'Test Item',quantity:2,sellingPrice:150,soldType:'pack'}],subtotal:300,total:300,paid:300,loanAmount:0,customerName:'Test Customer',paymentMethod:'Cash'};
                     setTimeout(()=>this.printReceipt(),300);
+                },
+
+                // ─── BACKUP & RESTORE ───
+                getAllBackupData() {
+                    return {
+                        _version: 1,
+                        _date: new Date().toISOString(),
+                        products:      this.getStore('products', []),
+                        customers:     this.getStore('customers', []),
+                        suppliers:     this.getStore('suppliers', []),
+                        sales:         this.getStore('sales', []),
+                        expenses:      this.getStore('expenses', []),
+                        assets:        this.getStore('assets', []),
+                        ledgerEntries: this.getStore('ledgerEntries', []),
+                        ledgers:       this.getStore('ledgers', {}),
+                        paymentHistory:this.getStore('paymentHistory', []),
+                        jazzcash:      this.getStore('jazzcash', {}),
+                        settings:      this.getStore('settings', {}),
+                        dashboard_notepad: this.getStore('dashboard_notepad', ''),
+                    };
+                },
+
+                triggerBackupDownload(data) {
+                    const fileName = 'KhubaibPOS_Backup_' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.json';
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+                    this.settings.lastBackupDate = new Date().toISOString();
+                    this.saveSettings();
+                },
+
+                manualBackup() {
+                    const data = this.getAllBackupData();
+                    this.triggerBackupDownload(data);
+                    this.backupStatusMessage = 'Backup downloaded successfully!';
+                    this.backupStatusType = 'success';
+                    setTimeout(() => this.backupStatusMessage = '', 3500);
+                },
+
+                scheduleAutoBackup() {
+                    if (this.autoBackupTimer) { clearInterval(this.autoBackupTimer); this.autoBackupTimer = null; }
+                    const f = this.settings.backupFrequency;
+                    if (!f || f === 'off') return;
+                    const intervals = { daily: 86400000, weekly: 604800000, monthly: 2592000000 };
+                    const ms = intervals[f];
+                    if (!ms) return;
+                    const checkAndRun = () => {
+                        const last = this.settings.lastBackupDate ? new Date(this.settings.lastBackupDate).getTime() : 0;
+                        if (Date.now() - last >= ms) {
+                            this.triggerBackupDownload(this.getAllBackupData());
+                            this.backupStatusMessage = 'Auto-backup completed (' + f + ')';
+                            this.backupStatusType = 'success';
+                            setTimeout(() => this.backupStatusMessage = '', 4000);
+                        }
+                    };
+                    checkAndRun();
+                    // Check every hour (or every interval if shorter)
+                    this.autoBackupTimer = setInterval(checkAndRun, Math.min(ms, 3600000));
+                },
+
+                restoreFromBackup(event) {
+                    const file = event.target.files && event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        try {
+                            const data = JSON.parse(ev.target.result);
+                            if (!data._version) throw new Error('Not a valid Khubaib POS backup file.');
+                            const keys = ['products','customers','suppliers','sales','expenses','assets','ledgerEntries','ledgers','paymentHistory','jazzcash','settings','dashboard_notepad'];
+                            for (const k of keys) {
+                                if (data[k] !== undefined) this.setStore(k, data[k]);
+                            }
+                            // Reload all in-memory state
+                            this.settings = { ...this.settings, ...this.getStore('settings', {}) };
+                            this.loadProducts();
+                            this.loadCustomers();
+                            this.loadSuppliers();
+                            this.loadSales();
+                            this.loadExpenses();
+                            this.loadAssets();
+                            this.loadLedgerEntries();
+                            this.loadJazzcashData();
+                            this.loadPaymentHistory();
+                            this.loadDashboardTools();
+                            this.loadDashboardData();
+                            this.loadReports();
+                            this.loadAnalytics();
+                            document.body.style.zoom = this.settings.pageZoom / 100;
+                            this.backupStatusMessage = 'Restore successful! Data loaded from backup dated ' + new Date(data._date).toLocaleString();
+                            this.backupStatusType = 'success';
+                        } catch(err) {
+                            this.backupStatusMessage = 'Restore failed: ' + err.message;
+                            this.backupStatusType = 'error';
+                        }
+                        setTimeout(() => this.backupStatusMessage = '', 5000);
+                        event.target.value = '';
+                    };
+                    reader.readAsText(file);
                 }
             };
         }

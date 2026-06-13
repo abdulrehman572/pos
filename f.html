@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khubaib POS Pro · 7‑Day Trial</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        /* ========== CSS (same as before, full styling) ========== */
+        :root {
+            --bg: #0f1117;
+            --surface: #181c27;
+            --surface2: #1e2335;
+            --border: #262d42;
+            --border2: #2e3650;
+            --text: #e8eaf0;
+            --muted: #7a849e;
+            --accent: #10d87a;
+            --accent-dim: #0d9e5a;
+            --accent-glow: rgba(16,216,122,.12);
+            --blue: #4f83ff;
+            --amber: #f5a623;
+            --rose: #f05470;
+            --purple: #a78bfa;
+            --sidebar-w: 256px;
+            --sidebar-c: 68px;
+            --radius: 14px;
+            --radius-sm: 8px;
+        }
+        [x-cloak] { display: none !important; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { font-size: 15px; min-height: 100vh; height: 100%; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+        .sidebar {
+            position: fixed; top: 0; bottom: 0; left: 0; width: var(--sidebar-w);
+            height: 100vh; z-index: 40; background: var(--surface);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            transition: width .28s cubic-bezier(.4,0,.2,1), transform .28s ease; overflow: hidden;
+        }
+        .sidebar.collapsed { width: var(--sidebar-c); }
+        .sidebar-logo {
+            height: 64px; display: flex; align-items: center; gap: 12px;
+            padding: 0 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .logo-icon {
+            width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+            background: linear-gradient(135deg,#10d87a,#0b8a4e); display: flex;
+            align-items: center; justify-content: center;
+            box-shadow: 0 4px 14px rgba(16,216,122,.3); overflow: hidden;
+        }
+        .logo-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .logo-text p { font-size: .88rem; font-weight: 700; white-space: nowrap; color: var(--text); }
+        .logo-text span { font-size: .7rem; color: var(--accent); white-space: nowrap; }
+        .sidebar-nav { flex: 1 1 auto; overflow-y: auto; padding: 10px 8px; }
+        .nav-section-label {
+            font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+            text-transform: uppercase; color: var(--muted); padding: 12px 10px 4px;
+            white-space: nowrap; overflow: hidden;
+        }
+        .sidebar.collapsed .nav-section-label { opacity: 0; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+            border-radius: var(--radius-sm); cursor: pointer; user-select: none;
+            text-decoration: none; color: var(--muted); font-size: .84rem;
+            font-weight: 500; white-space: nowrap; overflow: hidden;
+            transition: background .15s, color .15s; position: relative;
+        }
+        .nav-item:hover { background: var(--surface2); color: var(--text); }
+        .nav-item.active { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(16,216,122,.18); }
+        .nav-item i { width: 18px; text-align: center; font-size: .9rem; flex-shrink: 0; }
+        .nav-item span { overflow: hidden; white-space: nowrap; }
+        .nav-badge { margin-left: auto; flex-shrink: 0; background: var(--rose); color: #fff; font-size: .62rem; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
+        .main { margin-left: var(--sidebar-w); min-height: 100vh; display: flex; flex-direction: column; transition: margin-left .28s cubic-bezier(.4,0,.2,1); }
+        .main.collapsed { margin-left: var(--sidebar-c); }
+        .topbar {
+            height: 60px; background: var(--surface); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 20px; gap: 14px;
+            position: sticky; top: 0; z-index: 30; flex-shrink: 0;
+        }
+        .topbar-toggle {
+            width: 34px; height: 34px; border-radius: var(--radius-sm);
+            background: var(--surface2); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--muted); flex-shrink: 0;
+            transition: background .15s, color .15s;
+        }
+        .topbar-toggle:hover { background: var(--border); color: var(--text); }
+        .topbar-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); }
+        .topbar-breadcrumb .page-name { color: var(--text); font-weight: 600; }
+        .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .topbar-date { font-size: .75rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+        .topbar-avatar { width: 32px; height: 32px; border-radius: 99px; background: linear-gradient(135deg,#10d87a,#4f83ff); display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; color: #fff; cursor: pointer; }
+        .page-content { flex: 1; padding: 24px; overflow-y: auto; }
+        .page-header { margin-bottom: 22px; }
+        .page-header h1 { font-size: 1.45rem; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; }
+        .page-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-glow); border: 1px solid rgba(16,216,122,.2); display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--accent); }
+        .page-header p { font-size: .82rem; color: var(--muted); margin-top: 4px; margin-left: 48px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+        .card-sm { padding: 14px 16px; }
+        .stat-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 18px 20px; cursor: pointer;
+            transition: border-color .18s, transform .18s, box-shadow .18s;
+            position: relative; overflow: hidden; display: flex; flex-direction: column; min-height: 120px;
+        }
+        .stat-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(16,216,122,.08); }
+        .notepad-card, .calculator-card { min-height: auto; transition: transform .18s, box-shadow .18s, border-color .18s, background .18s; }
+        .notepad-card { display: flex; flex-direction: column; }
+        .notepad-card:hover, .calculator-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 14px 50px rgba(16,216,122,.08); }
+        .calculator-card.active { border-color: rgba(79,131,255,.55); background: radial-gradient(circle at top right, rgba(79,131,255,.08), transparent 48%); }
+        .calculator-hidden-input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; margin: 0; opacity: 0; border: 0; outline: none; pointer-events: none; z-index: -1; }
+        .calculator-card { position: relative; overflow: hidden; }
+        .calculator-pad { position: relative; z-index: 1; }
+        .calculator-display { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 16px; padding: 18px 16px; margin: 14px 0 16px; display: flex; flex-direction: column; gap: 4px; min-height: 92px; }
+        .calculator-expression { font-size: 1rem; color: var(--muted); min-height: 24px; word-break: break-all; }
+        .calculator-result { font-size: 1.7rem; font-weight: 800; color: var(--text); text-align: right; font-family: 'JetBrains Mono', monospace; }
+        .calculator-pad { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+        .calculator-button { border: 1px solid transparent; border-radius: 14px; padding: 14px 0; background: rgba(255,255,255,.05); color: var(--text); font-size: 1rem; font-weight: 700; cursor: pointer; transition: transform .12s, background .15s, border-color .15s, box-shadow .15s; }
+        .calculator-button:hover { background: rgba(255,255,255,.1); transform: translateY(-1px); }
+        .calculator-button.operator { background: rgba(79,131,255,.12); color: var(--blue); }
+        .calculator-button.operator:hover { background: rgba(79,131,255,.18); }
+        .calculator-button.action { grid-column: span 4; background: var(--accent); color: #08110c; box-shadow: 0 8px 20px rgba(16,216,122,.18); }
+        .calculator-button.action:hover { background: #15e488; }
+        .calculator-button.wide { grid-column: span 2; }
+        .notepad-area { min-height: 190px; max-height: 240px; resize: vertical; }
+        .stat-label { font-size: .73rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
+        .stat-value { font-size: 1.55rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; margin-bottom: 6px; }
+        .stat-value .currency { font-size: .85rem; font-weight: 600; color: var(--muted); margin-right: 3px; }
+        .stat-meta { font-size: .72rem; color: var(--muted); display: flex; align-items: center; gap: 5px; margin-top: auto; }
+        .stat-icon { position: absolute; top: 16px; right: 16px; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+        .ic-green { background: rgba(16,216,122,.12); color: var(--accent); }
+        .ic-blue { background: rgba(79,131,255,.12); color: var(--blue); }
+        .ic-amber { background: rgba(245,166,35,.12); color: var(--amber); }
+        .ic-rose { background: rgba(240,84,112,.12); color: var(--rose); }
+        .ic-purple { background: rgba(167,139,250,.12); color: var(--purple); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 14px; }
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px,1fr)); gap: 12px; }
+        input, select, textarea { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 9px 12px; font-size: .84rem; font-family: inherit; width: 100%; outline: none; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(16,216,122,.12); }
+        input::placeholder { color: var(--muted); }
+        select option { background: var(--surface2); }
+        .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: var(--radius-sm); font-size: .82rem; font-weight: 600; cursor: pointer; border: none; transition: opacity .15s, transform .12s, box-shadow .15s; font-family: inherit; white-space: nowrap; }
+        .btn:hover { opacity: .88; }
+        .btn:active { transform: scale(.97); }
+        .btn-primary { background: var(--accent); color: #0a1a0d; box-shadow: 0 4px 14px rgba(16,216,122,.25); }
+        .btn-primary:hover { box-shadow: 0 6px 20px rgba(16,216,122,.35); opacity: 1; }
+        .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+        .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+        .btn-ghost:hover { color: var(--text); background: var(--surface2); }
+        .btn-danger { background: rgba(240,84,112,.15); color: var(--rose); border: 1px solid rgba(240,84,112,.25); }
+        .btn-blue { background: rgba(79,131,255,.15); color: var(--blue); border: 1px solid rgba(79,131,255,.25); }
+        .btn-amber { background: rgba(245,166,35,.15); color: var(--amber); border: 1px solid rgba(245,166,35,.25); }
+        .btn-purple { background: rgba(167,139,250,.15); color: var(--purple); border: 1px solid rgba(167,139,250,.25); }
+        .btn-sm { padding: 6px 12px; font-size: .75rem; }
+        .btn-lg { padding: 12px 22px; font-size: .92rem; }
+        .btn-full { width: 100%; justify-content: center; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+        thead th { padding: 10px 14px; text-align: left; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+        tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+        tbody tr:hover { background: var(--surface2); }
+        tbody td { padding: 11px 14px; color: var(--text); }
+        tbody tr:last-child { border-bottom: none; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 99px; font-size: .68rem; font-weight: 700; letter-spacing: .03em; }
+        .badge-green { background: rgba(16,216,122,.12); color: var(--accent); border: 1px solid rgba(16,216,122,.2); }
+        .badge-rose { background: rgba(240,84,112,.12); color: var(--rose); border: 1px solid rgba(240,84,112,.2); }
+        .badge-amber { background: rgba(245,166,35,.12); color: var(--amber); border: 1px solid rgba(245,166,35,.2); }
+        .badge-blue { background: rgba(79,131,255,.12); color: var(--blue); border: 1px solid rgba(79,131,255,.2); }
+        .product-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display: flex; gap: 14px; align-items: flex-start; padding: 14px; transition: border-color .15s; }
+        .product-card:hover { border-color: var(--border2); }
+        .product-thumb { width: 62px; height: 62px; flex-shrink: 0; border-radius: 10px; object-fit: cover; background: var(--surface2); border: 1px solid var(--border); }
+        .billing-wrap { display: flex; gap: 16px; height: calc(100vh - 120px); }
+        .billing-left { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .billing-right { width: 360px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; }
+        .cart-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .cart-header h3 { font-size: .9rem; font-weight: 700; }
+        .cart-items { flex: 1; overflow-y: auto; padding: 10px; }
+        .cart-item { background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 6px; border: 1px solid var(--border); }
+        .cart-footer { border-top: 1px solid var(--border); padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+        .cart-total-row { display: flex; justify-content: space-between; align-items: center; }
+        .cart-total-row .label { font-size: .78rem; color: var(--muted); }
+        .cart-total-row .value { font-size: 1.3rem; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+        .detail-panel { background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 0 0 1px rgba(16,216,122,.05); border-radius: var(--radius); padding: 20px; margin-top: 16px; }
+        .detail-panel h3 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: var(--accent); }
+        .search-bar { position: relative; }
+        .search-bar i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: .82rem; pointer-events: none; }
+        .search-bar input { padding-left: 36px; }
+        .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(5,7,14,.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+        .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,.55); }
+        .modal-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-size: 1rem; font-weight: 700; }
+        .modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+        .modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        .field label { font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .status-bar { padding: 10px 14px; border-radius: var(--radius-sm); font-size: .8rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .status-success { background: rgba(16,216,122,.1); color: var(--accent); border: 1px solid rgba(16,216,122,.2); }
+        .status-error { background: rgba(240,84,112,.1); color: var(--rose); border: 1px solid rgba(240,84,112,.2); }
+        .section-label { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+        .stock-bar { height: 3px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 3px; }
+        .stock-bar-fill { height: 100%; border-radius: 99px; transition: width .4s; }
+        .wallet-card { background: linear-gradient(135deg,#1a1140,#2d1b69); border: 1px solid rgba(167,139,250,.2); border-radius: var(--radius); padding: 22px; position: relative; overflow: hidden; }
+        .wallet-card::after { content: ''; position: absolute; width: 180px; height: 180px; border-radius: 50%; background: rgba(167,139,250,.07); top: -60px; right: -40px; }
+        .scroll-y { overflow-y: auto; }
+        .max-h-64 { max-height: 16rem; }
+        .max-h-80 { max-height: 20rem; }
+        .max-h-96 { max-height: 24rem; }
+        .lock-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .items-start { align-items: flex-start; }
+        .justify-between { justify-content: space-between; }
+        .justify-end { justify-content: flex-end; }
+        .gap-2 { gap: 8px; }
+        .gap-3 { gap: 12px; }
+        .gap-4 { gap: 16px; }
+        .w-full { width: 100%; }
+        .mt-2 { margin-top: 8px; }
+        .mt-3 { margin-top: 12px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-3 { margin-bottom: 12px; }
+        .mb-4 { margin-bottom: 16px; }
+        .text-sm { font-size: .82rem; }
+        .text-xs { font-size: .72rem; }
+        .text-muted { color: var(--muted); }
+        .text-accent { color: var(--accent); }
+        .text-rose { color: var(--rose); }
+        .text-amber { color: var(--amber); }
+        .text-blue { color: var(--blue); }
+        .text-purple { color: var(--purple); }
+        .font-bold { font-weight: 700; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+        .rounded { border-radius: var(--radius-sm); }
+        .logo-upload-area { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .logo-preview-thumb { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: var(--surface2); }
+        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(16,216,122,.5); animation: pulse 1.8s ease infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16,216,122,.5); } 70% { box-shadow: 0 0 0 7px rgba(16,216,122,0); } 100% { box-shadow: 0 0 0 0 rgba(16,216,122,0); } }
+
+        /* Stock section styling in modal */
+        .stock-section { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+        .stock-section-title { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .stock-total-display { background: var(--accent-glow); border: 1px solid rgba(16,216,122,.2); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+        .stock-total-label { font-size: .78rem; color: var(--muted); font-weight: 600; }
+        .stock-total-value { font-size: 1.1rem; font-weight: 800; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+
+        @media print {
+            body * { visibility: hidden; }
+            .receipt-print, .receipt-print * { visibility: visible; }
+            .receipt-print { position: absolute; left: 0; top: 0; width: 80mm; padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; color: #000; background: #fff; line-height: 1.4; }
+        }
+        @media (max-width:1024px) {
+            .sidebar { position: fixed; top: 0; bottom: 0; transform: translateX(-100%); width: var(--sidebar-w) !important; }
+            .sidebar.mobile-open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,.25); }
+            .main { margin-left: 0 !important; }
+            .billing-wrap { flex-direction: column; height: auto; }
+            .billing-right { width: 100%; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width:640px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .field-row { grid-template-columns: 1fr; }
+            .field-row-3 { grid-template-columns: 1fr; }
+            .page-content { padding: 14px; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .grid-3 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body x-data="window.posApp()" x-init="init()" x-cloak>
+
+    <!-- LOCK SCREEN -->
+    <div x-show="isLocked" class="lock-screen">
+        <div style="text-align:center;max-width:340px;">
+            <div style="width:72px;height:72px;border-radius:20px;background:rgba(240,84,112,.12);border:1px solid rgba(240,84,112,.25);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;">
+                <i class="fas fa-lock" style="color:var(--rose)"></i>
+            </div>
+            <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:8px;">Trial Expired</h2>
+            <p style="color:var(--muted);font-size:.88rem;">Contact <strong>03106770401</strong> for the paid plan.</p>
+            <div style="margin-top:20px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);">khubaibenterprises@dev.pk</div>
+        </div>
+    </div>
+
+    <div x-show="!isLocked">
+
+        <!-- MOBILE OVERLAY -->
+        <div x-show="sidebarOpen && isMobileCheck()" @click="sidebarOpen=false" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:35;" x-transition.opacity></div>
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar" :class="{'collapsed': sidebarCollapsed && !hoverExpand && !isMobileCheck(), 'mobile-open': sidebarOpen && isMobileCheck()}" @mouseenter="if(!isMobileCheck()&&sidebarCollapsed) hoverExpand=true" @mouseleave="if(!isMobileCheck()&&sidebarCollapsed) hoverExpand=false">
+            <div class="sidebar-logo">
+                <div class="logo-icon">
+                    <img :src="settings.sidebarLogoDataUrl || 'logo/logo.png'" alt="Shop Logo" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2238%22 height=%2238%22><rect fill=%22%2310d87a%22 width=%2238%22 height=%2238%22 rx=%2212%22/><text x=%2219%22 y=%2226%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2216%22>K</text></svg>'" />
+                </div>
+                <div class="logo-text" x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()">
+                    <p x-text="settings.shopName"></p>
+                    <span>POS</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-label" x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()">Main</div>
+                <template x-for="item in navItems.slice(0,3)">
+                    <a href="#" @click.prevent="navigateTo(item.page)" class="nav-item" :class="{active: currentPage===item.page}" :title="(sidebarCollapsed&&!hoverExpand&&!isMobileCheck())?item.label:''">
+                        <i :class="item.icon"></i>
+                        <span x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" x-text="item.label"></span>
+                    </a>
+                </template>
+                <div class="nav-section-label" x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()">Inventory</div>
+                <template x-for="item in navItems.slice(3,6)">
+                    <a href="#" @click.prevent="navigateTo(item.page)" class="nav-item" :class="{active: currentPage===item.page}" :title="(sidebarCollapsed&&!hoverExpand&&!isMobileCheck())?item.label:''">
+                        <i :class="item.icon"></i>
+                        <span x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" x-text="item.label"></span>
+                    </a>
+                </template>
+                <div class="nav-section-label" x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()">Finance</div>
+                <template x-for="item in navItems.slice(6)">
+                    <a href="#" @click.prevent="navigateTo(item.page)" class="nav-item" :class="{active: currentPage===item.page}" :title="(sidebarCollapsed&&!hoverExpand&&!isMobileCheck())?item.label:''">
+                        <i :class="item.icon"></i>
+                        <span x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()" x-text="item.label"></span>
+                        <span class="nav-badge" x-show="item.page==='khata' && dashboard.creditCustomersCount>0 && (!sidebarCollapsed||hoverExpand||isMobileCheck())" x-text="dashboard.creditCustomersCount"></span>
+                    </a>
+                </template>
+            </nav>
+            <div style="padding:12px 8px;border-top:1px solid var(--border);flex-shrink:0;">
+                <a href="#" @click.prevent="navigateTo('settings')" class="nav-item" :class="{active: currentPage==='settings'}">
+                    <i class="fas fa-sliders-h"></i>
+                    <span x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()">Settings</span>
+                </a>
+                <div class="nav-item" style="margin-top:4px;cursor:default;" x-show="!sidebarCollapsed || hoverExpand || isMobileCheck()">
+                    <div class="pulse-dot"></div>
+                    <span style="font-size:.72rem;color:var(--muted);">System Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <div class="main" :class="{'collapsed': sidebarCollapsed && !hoverExpand && !isMobileCheck()}">
+
+            <!-- TOPBAR -->
+            <header class="topbar">
+                <div class="topbar-toggle" @click="toggleSidebar()">
+                    <i class="fas fa-bars" style="font-size:.82rem;"></i>
+                </div>
+                <div class="topbar-breadcrumb">
+                    <i class="fas fa-store" style="color:var(--muted);font-size:.72rem;"></i>
+                    <span>Khubaib POS</span>
+                    <i class="fas fa-chevron-right" style="font-size:.6rem;"></i>
+                    <span class="page-name" x-text="currentPageLabel"></span>
+                </div>
+                <div class="topbar-right">
+                    <div class="topbar-date" x-text="liveTime"></div>
+                    <div class="topbar-avatar" title="Admin">AD</div>
+                </div>
+            </header>
+
+            <!-- PAGE CONTENT (full, with all sections) -->
+            <main class="page-content">
+
+                <!-- ═══════════ DASHBOARD ═══════════ -->
+                <div x-show="currentPage==='dashboard'" x-transition>
+                    <div class="page-header">
+                        <h1><span class="page-icon"><i class="fas fa-tachometer-alt"></i></span> Dashboard</h1>
+                        <p>Live overview for <span x-text="new Date().toLocaleDateString('en-PK',{weekday:'long',year:'numeric',month:'long',day:'numeric'})"></span></p>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card" @click="showDashboardDetail('todaySales')">
+                            <div class="stat-icon ic-green"><i class="fas fa-coins"></i></div>
+                            <div class="stat-label">Today's Sales</div>
+                            <div class="stat-value"><span class="currency">PKR</span><span x-text="dashboard.todaySalesTotal.toLocaleString()"></span></div>
+                            <div class="stat-meta"><i class="fas fa-receipt"></i> <span x-text="dashboard.todayInvoices"></span> invoices · tap for list</div>
+                        </div>
+                        <div x-show="settings.showCashInHand" class="stat-card" @click="showDashboardDetail('cashInHand')">
+                            <div class="stat-icon ic-amber"><i class="fas fa-wallet"></i></div>
+                            <div class="stat-label">Cash in Hand</div>
+                            <div class="stat-value"><span class="currency">PKR</span><span x-text="dashboard.cashInHand.toLocaleString()"></span></div>
+                            <div class="stat-meta">Manual + JazzCash Sent - Received</div>
+                            <div x-show="dashboard.cashInHand===0" class="flex gap-2 mt-2">
+                                <input type="number" x-model="addCashAmount" placeholder="Add initial cash" style="flex:1;">
+                                <button @click="addManualCash()" class="btn btn-amber btn-sm">Add</button>
+                            </div>
+                        </div>
+                        <div class="stat-card" @click="showDashboardDetail('jazzcash')">
+                            <div class="stat-icon ic-purple"><i class="fas fa-mobile-alt"></i></div>
+                            <div class="stat-label">JazzCash</div>
+                            <div class="stat-value"><span class="currency">PKR</span><span x-text="jazzcash.balance.toLocaleString()"></span></div>
+                            <div class="stat-meta">Wallet balance</div>
+                        </div>
+                        <div class="stat-card" @click="showDashboardDetail('creditCustomers')">
+                            <div class="stat-icon ic-green"><i class="fas fa-users"></i></div>
+                            <div class="stat-label">Credit Customers</div>
+                            <div class="stat-value" x-text="dashboard.creditCustomersCount"></div>
+                            <div class="stat-meta">With outstanding dues</div>
+                        </div>
+                        <div class="stat-card" @click="showDashboardDetail('expiringSoon')">
+                            <div class="stat-icon ic-amber"><i class="fas fa-hourglass-half"></i></div>
+                            <div class="stat-label">Expiring Soon</div>
+                            <div class="stat-value" x-text="dashboard.expiringSoonCount"></div>
+                            <div class="stat-meta">Within 30 days</div>
+                        </div>
+                        <div class="stat-card" @click="showDashboardDetail('overdueCustomers')">
+                            <div class="stat-icon ic-rose"><i class="fas fa-exclamation-triangle"></i></div>
+                            <div class="stat-label">Overdue Credits</div>
+                            <div class="stat-value" x-text="dashboard.overdueCustomersCount"></div>
+                            <div class="stat-meta">Exceeded credit limit</div>
+                        </div>
+                    </div>
+
+                    <div x-show="dashboard.detailOpen" class="detail-panel" x-transition>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 x-text="dashboard.detailTitle"></h3>
+                            <button @click="dashboard.detailOpen=false" class="btn btn-ghost btn-sm"><i class="fas fa-times"></i> Close</button>
+                        </div>
+                        <div class="scroll-y max-h-80">
+                            <template x-for="item in dashboard.detailItems">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+                                    <div><div class="font-bold text-sm" x-text="item.title"></div><div class="text-xs text-muted" x-text="item.subtitle"></div></div>
+                                    <div class="badge badge-green" x-text="item.meta"></div>
+                                </div>
+                            </template>
+                            <div x-show="!dashboard.detailItems.length" style="text-align:center;padding:24px;color:var(--muted);">No data available</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2 mt-4">
+                        <div class="card">
+                            <div class="section-label">Critical Low Stock</div>
+                            <template x-for="p in dashboard.lowStock.slice(0,6)">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+                                    <div class="text-sm font-bold" x-text="p.name"></div>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <div class="stock-bar" style="width:80px;">
+                                            <div class="stock-bar-fill" :style="'width:'+Math.min(100,(p.stock/p.lowStockThreshold*100))+'%;background:'+(p.stock<=0?'var(--rose)':'var(--amber)')"></div>
+                                        </div>
+                                        <span class="badge" :class="p.stock<=0?'badge-rose':'badge-amber'" x-text="p.stock+' '+p.unit"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="!dashboard.lowStock.length" class="text-muted text-sm" style="padding:12px 0;">All stock levels are healthy</div>
+                        </div>
+                        <div class="card">
+                            <div class="section-label">Recent Credit Accounts</div>
+                            <template x-for="c in dashboard.creditCustomers.slice(0,5)">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+                                    <div><div class="font-bold text-sm" x-text="c.name"></div><div class="text-xs text-muted" x-text="c.phone||'No phone'"></div></div>
+                                    <span class="badge badge-amber">PKR <span x-text="(c.balance||0).toLocaleString()"></span></span>
+                                </div>
+                            </template>
+                            <div x-show="!dashboard.creditCustomers.length" class="text-muted text-sm" style="padding:12px 0;">No credit customers</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2 mt-4">
+                        <div class="card notepad-card" @click="focusDashboardTool('notepad')" tabindex="0">
+                            <div class="section-label">Quick Notepad</div>
+                            <textarea x-ref="notepadText" x-model="dashboard.notepadText" @focus="focusDashboardTool('notepad')" @blur="blurDashboardTool()" rows="6" class="notepad-area" placeholder="Type notes here..."></textarea>
+                            <div class="text-xs text-muted mt-2">Click here and type notes. Press Escape to deactivate.</div>
+                        </div>
+                        <div class="card calculator-card" :class="{active: dashboard.activeTool==='calculator'}" @click="focusDashboardTool('calculator')" tabindex="0">
+                            <div class="section-label">Calculator</div>
+                            <input x-ref="calculatorInput" type="text" class="calculator-hidden-input" aria-label="Calculator input" @keydown.prevent.stop="handleCalculatorKey($event)" @blur="blurDashboardTool()" />
+                            <div class="calculator-display">
+                                <div class="calculator-expression" x-text="dashboard.calculatorInput || '0'"></div>
+                                <div class="calculator-result" x-text="dashboard.calculatorResult"></div>
+                            </div>
+                            <div class="calculator-pad">
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('7')">7</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('8')">8</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('9')">9</button>
+                                <button type="button" class="calculator-button operator" @click.prevent="appendCalculator('/')">÷</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('4')">4</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('5')">5</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('6')">6</button>
+                                <button type="button" class="calculator-button operator" @click.prevent="appendCalculator('*')">×</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('1')">1</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('2')">2</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('3')">3</button>
+                                <button type="button" class="calculator-button operator" @click.prevent="appendCalculator('-')">−</button>
+                                <button type="button" class="calculator-button wide" @click.prevent="appendCalculator('0')">0</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('.')">.</button>
+                                <button type="button" class="calculator-button" @click.prevent="appendCalculator('%')">%</button>
+                                <button type="button" class="calculator-button operator" @click.prevent="appendCalculator('+')">+</button>
+                                <button type="button" class="calculator-button action" @click.prevent="clearCalculator()">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ BILLING ═══════════ -->
+                <div x-show="currentPage==='billing'" x-transition>
+                    <div class="page-header">
+                        <h1><span class="page-icon"><i class="fas fa-shopping-cart"></i></span> Smart Billing</h1>
+                        <p>Scan barcode or search to add items</p>
+                    </div>
+                    <div class="billing-wrap">
+                        <div class="billing-left">
+                            <div class="card card-sm">
+                                <div class="search-bar">
+                                    <i class="fas fa-barcode"></i>
+                                    <input type="text" x-model="bill.search" @input.debounce.200ms="searchProducts()" @keydown.enter.prevent="handleBarcodeEnter()" placeholder="Scan barcode or search product name…" style="font-size:.9rem;">
+                                </div>
+                            </div>
+                            <div class="card" style="flex:1;overflow-y:auto;">
+                                <div class="section-label">Search Results</div>
+                                <template x-for="p in bill.searchResults">
+                                    <div @click="addToCart(p)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:padding .1s;" onmouseover="this.style.paddingLeft='8px'" onmouseout="this.style.paddingLeft='0'">
+                                        <div>
+                                            <div class="font-bold text-sm" x-text="p.name"></div>
+                                            <div class="text-xs text-muted">
+                                                <span x-text="p.companyName"></span> · Stock: <span x-text="p.stock"></span> <span x-text="p.unit"></span>
+                                                <span x-show="p.stock<=p.lowStockThreshold" class="badge badge-amber" style="margin-left:6px;">Low Stock</span>
+                                                <span x-show="p.soldType==='open'" class="badge badge-blue" style="margin-left:6px;">Open / Loose</span>
+                                            </div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <div class="text-accent font-bold font-mono">PKR <span x-text="p.sellingPrice"></span></div>
+                                            <div class="text-xs text-muted">Cost: PKR <span x-text="p.purchasePrice"></span></div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="!bill.searchResults.length && bill.search" style="text-align:center;padding:24px;color:var(--muted);">
+                                    <i class="fas fa-search" style="font-size:1.5rem;margin-bottom:8px;display:block;"></i>
+                                    No products found
+                                </div>
+                                <div x-show="!bill.search" style="text-align:center;padding:32px;color:var(--muted);">
+                                    <i class="fas fa-barcode" style="font-size:2rem;margin-bottom:10px;display:block;opacity:.3;"></i>
+                                    Start typing or scan a barcode
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CART -->
+                        <div class="billing-right">
+                            <div class="cart-header">
+                                <h3><i class="fas fa-receipt" style="color:var(--accent);margin-right:6px;"></i> Current Bill</h3>
+                                <span class="badge badge-blue" x-text="bill.cart.length + ' items'"></span>
+                            </div>
+                            <div class="cart-items">
+                                <template x-for="(item,idx) in bill.cart">
+                                    <div class="cart-item">
+                                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                                            <span class="font-bold text-sm" x-text="item.name"></span>
+                                            <button @click="removeFromCart(idx)" style="color:var(--rose);background:none;border:none;cursor:pointer;font-size:.8rem;"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                        <div x-show="item.soldType==='open' && item.smallerUnit" style="font-size:.72rem;color:var(--purple);margin-bottom:4px;">
+                                            Weight: <span x-text="item.quantity"></span> <span x-text="item.smallerUnit"></span>
+                                        </div>
+                                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                                            <div style="display:flex;align-items:center;gap:6px;">
+                                                <button @click="decrementItem(idx)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:700;">−</button>
+                                                <input type="number" x-model="item.quantity" @input="updateQuantityFromInput(idx)" style="width:62px;text-align:center;padding:4px 6px;font-size:.82rem;" :step="item.soldType==='open'?'0.1':'1'">
+                                                <input x-show="item.soldType==='open'" type="number" placeholder="Price (PKR)" @input="onPriceInput(idx, $event.target.value)" style="width:90px;padding:4px 6px;font-size:.82rem;margin-left:6px;">
+                                                <button @click="incrementItem(idx)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-glow);color:var(--accent);cursor:pointer;font-weight:700;">+</button>
+                                            </div>
+                                            <span class="font-mono font-bold text-sm text-accent">PKR <span x-text="getCartItemTotal(item).toLocaleString()"></span></span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="!bill.cart.length" style="text-align:center;padding:32px 16px;color:var(--muted);">
+                                    <i class="fas fa-shopping-cart" style="font-size:1.8rem;margin-bottom:8px;display:block;opacity:.25;"></i>
+                                    Cart is empty
+                                </div>
+                            </div>
+                            <div class="cart-footer">
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <input type="number" x-model="bill.discountAmount" placeholder="Discount (PKR)" @input="updateBillTotal()" style="flex:1;">
+                                </div>
+                                <div class="cart-total-row">
+                                    <span class="label">Total Due</span>
+                                    <span class="value">PKR <span x-text="bill.total.toLocaleString()"></span></span>
+                                </div>
+                                <div>
+                                    <select x-model="bill.paymentMethod" style="margin-bottom:8px;">
+                                        <option value="cash">Cash</option>
+                                        <option value="online">Online / Transfer</option>
+                                        <option value="loan">Credit / Loan</option>
+                                    </select>
+                                    <div x-show="bill.paymentMethod!=='loan'">
+                                        <input type="number" x-model="bill.amountPaid" @input="calculateChange" placeholder="Amount received…">
+                                        <div x-show="bill.changeAmount>0" class="status-bar status-success mt-2">
+                                            <i class="fas fa-coins"></i> Change: PKR <span x-text="bill.changeAmount.toLocaleString()"></span>
+                                        </div>
+                                    </div>
+                                    <div x-show="bill.paymentMethod==='loan' || (bill.amountPaid < bill.total && bill.amountPaid>0)">
+                                        <select x-model="bill.loanCustomerId" style="margin-top:8px;">
+                                            <option value="">Select customer for credit…</option>
+                                            <template x-for="c in customers">
+                                                <option :value="c.id" x-text="c.name + ' — Due: PKR '+(c.balance||0)"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="openCustomerModal('bill')" class="btn btn-ghost btn-sm mt-2" style="width:100%;justify-content:center;">+ New Customer</button>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button @click="completeSale(false)" class="btn btn-primary" style="flex:1;justify-content:center;"><i class="fas fa-check"></i> Complete Sale</button>
+                                    <button @click="completeSale(true)" class="btn btn-blue" style="flex:1;justify-content:center;"><i class="fas fa-print"></i> Sale + Print</button>
+                                </div>
+                                <div x-show="bill.statusMessage" class="status-bar" :class="bill.statusType==='success'?'status-success':'status-error'">
+                                    <span x-text="bill.statusMessage"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ PURCHASE (Stock Purchase) ═══════════ -->
+                <div x-show="currentPage==='purchase'" x-transition>
+                    <div class="page-header">
+                        <h1><span class="page-icon"><i class="fas fa-truck"></i></span> Stock Purchase</h1>
+                        <p>Record incoming stock from suppliers</p>
+                    </div>
+                    <div class="card">
+                        <div class="field mb-3">
+                            <label>Supplier</label>
+                            <div style="display:flex;gap:8px;">
+                                <select x-model="purchase.supplierId" style="flex:1;">
+                                    <option value="">Select supplier…</option>
+                                    <template x-for="s in suppliers"><option :value="s.id" x-text="s.name"></option></template>
+                                </select>
+                                <button @click="openSupplierModal()" class="btn btn-ghost">+ New Supplier</button>
+                                <button @click="openProductModal()" class="btn btn-ghost">+ New Product</button>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <div class="field" style="flex:2;min-width:180px;">
+                                <label>Product</label>
+                                <select x-model="purchase.selectedProductId">
+                                    <option value="">Select product…</option>
+                                    <template x-for="p in allProducts"><option :value="p.id" x-text="p.name+' ('+p.unit+') — Cost: PKR '+p.purchasePrice"></option></template>
+                                </select>
+                            </div>
+                            <div class="field" style="width:130px;">
+                                <label>Unit Price (PKR)</label>
+                                <input type="number" x-model="purchase.customPrice" placeholder="0">
+                            </div>
+                            <div class="field" style="width:90px;">
+                                <label>Quantity</label>
+                                <input type="number" x-model="purchase.quantity" placeholder="1">
+                            </div>
+                            <div class="field" style="width:auto;justify-content:flex-end;">
+                                <label style="visibility:hidden;">Add</label>
+                                <button @click="addPurchaseItem()" class="btn btn-primary"><i class="fas fa-plus"></i> Add Item</button>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="section-label">Purchase Items</div>
+                            <div class="table-wrap">
+                                <table>
+                                    <thead><tr><th>Product</th><th>Quantity</th><th>Unit Price</th><th>Subtotal</th><th>Action</th></tr></thead>
+                                    <tbody>
+                                        <template x-for="(it,idx) in purchase.items">
+                                            <tr>
+                                                <td class="font-bold" x-text="it.name"></td>
+                                                <td x-text="it.quantity+' '+it.unit"></td>
+                                                <td class="font-mono">PKR <span x-text="it.purchasePrice"></span></td>
+                                                <td class="font-mono text-accent">PKR <span x-text="(it.quantity*it.purchasePrice).toLocaleString()"></span></td>
+                                                <td><button @click="purchase.items.splice(idx,1);purchase.total=purchase.items.reduce((s,i)=>s+(i.purchasePrice*i.quantity),0)" class="btn btn-danger btn-sm">Remove</button></td>
+                                            </tr>
+                                        </template>
+                                        <tr x-show="!purchase.items.length"><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No items added yet</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+                                <div style="font-size:1.2rem;font-weight:800;">Total: <span class="text-accent font-mono">PKR <span x-text="purchase.total.toLocaleString()"></span></span></div>
+                                <button @click="completePurchase()" class="btn btn-primary btn-lg"><i class="fas fa-check-circle"></i> Confirm Purchase</button>
+                            </div>
+                            <div x-show="purchase.statusMessage" class="status-bar status-success mt-3"><span x-text="purchase.statusMessage"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ KHATA (Customer Credit) ═══════════ -->
+                <div x-show="currentPage==='khata'" x-transition>
+                    <div class="page-header">
+                        <h1><span class="page-icon"><i class="fas fa-users"></i></span> Customer Khata</h1>
+                        <p>Manage credit accounts and record payments</p>
+                    </div>
+                    <div class="grid-2">
+                        <div>
+                            <div class="card mb-3">
+                                <div class="field mb-3">
+                                    <label>Select Customer</label>
+                                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                        <select x-model="khata.selectedCustomer" @change="loadCustomerLedger()" style="flex:1;min-width:170px;">
+                                            <option value="">Choose customer…</option>
+                                            <template x-for="c in customers">
+                                                <option :value="c.id" x-text="c.name + ' — Due: PKR '+(c.balance||0)"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="openCustomerModal('khata')" class="btn btn-ghost btn-sm">+ New Customer</button>
+                                    </div>
+                                </div>
+                                <div x-show="khata.selectedCustomer">
+                                    <div class="divider"></div>
+                                    <div class="section-label">Assign Credit</div>
+                                    <div style="display:flex;gap:8px;">
+                                        <input type="number" x-model="khata.creditAmount" placeholder="Amount (PKR)" style="flex:1;">
+                                        <button @click="assignCustomerCredit()" class="btn btn-amber">Assign Credit</button>
+                                    </div>
+                                    <div class="divider"></div>
+                                    <div class="section-label">Record Payment</div>
+                                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                        <input type="number" x-model="khata.paymentAmount" placeholder="Amount (PKR)" style="flex:1;min-width:120px;">
+                                        <select x-model="khata.paymentMethodType" style="width:110px;">
+                                            <option value="cash">Cash</option>
+                                            <option value="online">Online</option>
+                                        </select>
+                                        <button @click="recordPayment()" class="btn btn-primary">Record Payment</button>
+                                    </div>
+                                    <div x-show="khata.statusMessage" class="status-bar status-success mt-2"><span x-text="khata.statusMessage"></span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="section-label">Transaction Ledger</div>
+                            <div class="scroll-y max-h-96">
+                                <table>
+                                    <thead><tr><th>Date</th><th>Type</th><th>Amount</th></tr></thead>
+                                    <tbody>
+                                        <template x-for="tx in khata.ledger">
+                                            <tr>
+                                                <td class="text-xs text-muted" x-text="new Date(tx.date).toLocaleDateString()"></td>
+                                                <td x-text="tx.type"></td>
+                                                <td :class="tx.category==='sale'?'text-rose':'text-accent'" class="font-mono font-bold">PKR <span x-text="tx.amount.toLocaleString()"></span></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                                <div x-show="!khata.ledger.length" style="text-align:center;padding:24px;color:var(--muted);">No transactions yet</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ PRODUCTS ═══════════ -->
+                <div x-show="currentPage==='products'" x-transition>
+                    <div class="page-header flex justify-between items-center">
+                        <div>
+                            <h1><span class="page-icon"><i class="fas fa-boxes"></i></span> Product Master</h1>
+                            <p x-text="allProducts.length + ' products registered'"></p>
+                        </div>
+                        <button @click="openProductModal()" class="btn btn-primary"><i class="fas fa-plus"></i> New Product</button>
+                    </div>
+                    <div class="card mb-4">
+                        <div class="search-bar">
+                            <i class="fas fa-search"></i>
+                            <input type="text" x-model="productSearch" placeholder="Search by name or barcode…">
+                        </div>
+                    </div>
+                    <div class="products-grid">
+                        <template x-for="p in filteredProducts()">
+                            <div class="product-card">
+                                <img class="product-thumb" :src="p.image||'https://placehold.co/62x62/1e2335/7a849e?text='+encodeURIComponent(p.name.slice(0,2))" :alt="p.name">
+                                <div style="flex:1;">
+                                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                                        <div>
+                                            <div class="font-bold" x-text="p.name"></div>
+                                            <div class="text-xs text-muted mt-1" x-text="p.companyName+' · '+p.category"></div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <div class="text-accent font-mono font-bold text-sm">PKR <span x-text="p.sellingPrice"></span></div>
+                                            <div class="text-xs text-muted">Cost: PKR <span x-text="p.purchasePrice"></span></div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+                                        <span class="badge" :class="p.stock<=p.lowStockThreshold?'badge-rose':'badge-green'" x-text="p.stock+' '+p.unit"></span>
+                                        <span class="text-xs text-muted font-mono" x-text="'Barcode: '+p.barcode"></span>
+                                        <div style="margin-left:auto;display:flex;gap:6px;">
+                                            <button @click="editProduct(p)" class="btn btn-secondary btn-sm"><i class="fas fa-pen"></i></button>
+                                            <button @click="promptDelete(p.id)" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- ═══════════ COMPANIES ═══════════ -->
+                <div x-show="currentPage==='companies'" x-transition>
+                    <div class="page-header">
+                        <h1><span class="page-icon"><i class="fas fa-building"></i></span> Companies</h1>
+                        <p>View products grouped by company</p>
+                    </div>
+                    <div class="card mb-4">
+                        <div class="field">
+                            <label>Filter by Company</label>
+                            <select x-model="companiesSelectedCompany">
+                                <option value="">All Companies</option>
+                                <template x-for="c in companyNames"><option :value="c" x-text="c"></option></template>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr><th>Product</th><th>Unit</th><th>Stock</th><th>Purchase Price</th><th>Selling Price</th><th>Margin</th></tr></thead>
+                                <tbody>
+                                    <template x-for="p in (companiesSelectedCompany?filteredCompanyProducts:allProducts).slice(0,50)">
+                                        <tr>
+                                            <td class="font-bold" x-text="p.name"></td>
+                                            <td class="text-muted" x-text="p.unit"></td>
+                                            <td><span class="badge" :class="p.stock<=p.lowStockThreshold?'badge-rose':'badge-green'" x-text="p.stock"></span></td>
+                                            <td class="font-mono">PKR <span x-text="p.purchasePrice"></span></td>
+                                            <td class="font-mono text-accent">PKR <span x-text="p.sellingPrice"></span></td>
+                                            <td class="font-mono text-sm" x-text="Math.round((p.sellingPrice-p.purchasePrice)/p.sellingPrice*100)+'%'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ ANALYTICS ═══════════ -->
+                <div x-show="currentPage==='analytics'" x-transition>
+                    <div class="page-header">
+                        <h1><span class="page-icon"><i class="fas fa-chart-line"></i></span> Analytics</h1>
+                        <p>Sales performance and trends</p>
+                    </div>
+                    <div class="card mb-4">
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                            <div style="display:flex;gap:4px;">
+                                <button @click="analyticsPeriod='today';loadAnalytics()" class="btn btn-sm" :class="analyticsPeriod==='today'?'btn-primary':'btn-secondary'">Today</button>
+                                <button @click="analyticsPeriod='week';loadAnalytics()" class="btn btn-sm" :class="analyticsPeriod==='week'?'btn-primary':'btn-secondary'">This Week</button>
+                                <button @click="analyticsPeriod='month';loadAnalytics()" class="btn btn-sm" :class="analyticsPeriod==='month'?'btn-primary':'btn-secondary'">This Month</button>
+                            </div>
+                            <div style="display:flex;gap:4px;margin-left:8px;">
+                                <button @click="analytics.chartType='time';loadAnalytics()" class="btn btn-sm" :class="analytics.chartType==='time'?'btn-blue':'btn-ghost'">By Time</button>
+                                <button @click="analytics.chartType='product';loadAnalytics()" class="btn btn-sm" :class="analytics.chartType==='product'?'btn-blue':'btn-ghost'">By Product</button>
+                                <button @click="analytics.chartType='category';loadAnalytics()" class="btn btn-sm" :class="analytics.chartType==='category'?'btn-blue':'btn-ghost'">By Category</button>
+                                <button @click="analytics.chartType='company';loadAnalytics()" class="btn btn-sm" :class="analytics.chartType==='company'?'btn-blue':'btn-ghost'">By Company</button>
+                            </div>
+                            <div style="margin-left:auto;display:flex;gap:16px;">
+                                <div style="text-align:right;"><div class="text-xs text-muted">Total Sales</div><div class="font-mono font-bold text-accent" style="font-size:1.3rem;">PKR <span x-text="analytics.totalSales.toLocaleString()"></span></div></div>
+                                <div style="text-align:right;"><div class="text-xs text-muted">Profit</div><div class="font-mono font-bold" style="color:var(--blue)">PKR <span x-text="analytics.profit.toLocaleString()"></span></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-4" style="padding:20px;">
+                        <canvas id="comparisonChart" style="max-height:280px;"></canvas>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card"><div class="section-label">Top Products</div><div x-html="analytics.topProductsHtml"></div></div>
+                        <div class="card"><div class="section-label" x-text="analytics.chartType.charAt(0).toUpperCase()+analytics.chartType.slice(1)+' Breakdown'"></div><div x-html="analytics.topGroupsHtml"></div></div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ REPORTS ═══════════ -->
+                <div x-show="currentPage==='reports'" x-transition>
+                    <div class="page-header"><h1><span class="page-icon"><i class="fas fa-chart-pie"></i></span> Reports</h1></div>
+                    <div class="card mb-4">
+                        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                            <div class="field" style="flex:1;min-width:150px;"><label>From Date</label><input type="date" x-model="reports.startDate"></div>
+                            <div class="field" style="flex:1;min-width:150px;"><label>To Date</label><input type="date" x-model="reports.endDate"></div>
+                            <button @click="loadReports()" class="btn btn-primary"><i class="fas fa-play"></i> Run Report</button>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+                        <div class="card card-sm"><div class="text-xs text-muted mb-1">Total Sales</div><div class="font-mono font-bold text-accent" style="font-size:1.3rem;">PKR <span x-text="reports.totalSales.toLocaleString()"></span></div></div>
+                        <div class="card card-sm"><div class="text-xs text-muted mb-1">Total Profit</div><div class="font-mono font-bold" style="font-size:1.3rem;color:var(--blue);">PKR <span x-text="reports.totalProfit.toLocaleString()"></span></div></div>
+                        <div class="card card-sm"><div class="text-xs text-muted mb-1">Profit Margin</div><div class="font-mono font-bold" style="font-size:1.3rem;color:var(--amber);" x-text="reports.totalSales>0?Math.round(reports.totalProfit/reports.totalSales*100)+'%':'—'"></div></div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card"><div class="section-label">Product Sales</div><template x-for="item in reports.productSummary"><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div class="text-sm font-bold" x-text="item.name"></div><div style="display:flex;gap:12px;"><span class="badge badge-blue" x-text="item.quantity+' units'"></span><span class="font-mono text-accent text-sm">PKR <span x-text="item.total.toLocaleString()"></span></span></div></div></template><div x-show="!reports.productSummary.length" class="text-muted text-sm" style="padding:12px 0;">No data for selected period</div></div>
+                        <div class="card"><div class="section-label">Category Summary</div><template x-for="item in reports.categorySummary"><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div class="text-sm font-bold" x-text="item.category"></div><span class="font-mono text-accent text-sm">PKR <span x-text="item.total.toLocaleString()"></span></span></div></template></div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ RETURNS ═══════════ -->
+                <div x-show="currentPage==='returns'" x-transition>
+                    <div class="page-header"><h1><span class="page-icon"><i class="fas fa-undo"></i></span> Returns</h1></div>
+                    <div class="card">
+                        <div class="field mb-4"><label>Select Invoice</label><select x-model="returns.selectedSaleId" @change="loadReturnSale()"><option value="">Select sale invoice…</option><template x-for="s in sales"><option :value="s.id" x-text="'INV-'+s.id+' · '+new Date(s.date).toLocaleDateString()+' · PKR '+s.total"></option></template></select></div>
+                        <div x-show="returns.saleDetails?.items?.length">
+                            <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;"><div class="text-sm"><span class="text-muted">Customer:</span> <span class="font-bold" x-text="returns.saleDetails.customerName||'Walk-in'"></span> &nbsp;·&nbsp; <span class="text-muted">Total:</span> <span class="font-mono">PKR <span x-text="returns.saleDetails.total"></span></span></div></div>
+                            <template x-for="(item,idx) in returns.saleDetails.items">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);"><div class="text-sm font-bold" x-text="item.name+' × '+item.quantity"></div><div class="field" style="margin:0;"><label>Return Qty</label><input type="number" x-model="returns.saleDetails.items[idx].returnQty" placeholder="0" style="width:90px;"></div></div>
+                            </template>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;"><div x-show="returns.refundAmount>0" class="badge badge-green" style="font-size:.88rem;">Refund: PKR <span x-text="returns.refundAmount.toLocaleString()"></span></div><button @click="processReturn()" class="btn btn-amber"><i class="fas fa-undo"></i> Process Return</button></div>
+                            <div x-show="returns.statusMessage" class="status-bar status-success mt-3"><span x-text="returns.statusMessage"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════ LEDGER ═══════════ -->
+                <div x-show="currentPage==='ledger'" x-transition>
+                    <div class="page-header"><h1><span class="page-icon"><i class="fas fa-book"></i></span> General Ledger</h1></div>
+                    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;">
+                        <div class="card card-sm"><div class="text-xs text-muted">Total Debit</div><div class="font-bold" style="margin-top:8px;">PKR <span x-text="ledgerSummary.totalDebit.toLocaleString()"></span></div></div>
+                        <div class="card card-sm"><div class="text-xs text-muted">Total Credit</div><div class="font-bold" style="margin-top:8px;">PKR <span x-text="ledgerSummary.totalCredit.toLocaleString()"></span></div></div>
+                        <div class="card card-sm"><div class="text-xs text-muted">Payments Recorded</div><div class="font-bold" style="margin-top:8px;">PKR <span x-text="ledgerSummary.totalPayments.toLocaleString()"></span></div></div>
+                        <div class="card card-sm"><div class="text-xs text-muted">Profit / Loss</div><div class="font-bold" style="margin-top:8px;color:var(--blue);">PKR <span x-text="ledgerSummary.totalProfit.toLocaleString()"></span></div></div>
+                    </div>
+                    <div class="card"><div class="table-wrap"><table><thead><tr><th>Date / Time</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody><template x-for="entry in ledgerEntries"><tr><td class="font-mono text-xs text-muted" x-text="new Date(entry.date).toLocaleString()"></td><td x-text="entry.description"></td><td class="text-rose font-mono" x-text="entry.debit?'PKR '+entry.debit.toLocaleString():'—'"></td><td class="text-accent font-mono" x-text="entry.credit?'PKR '+entry.credit.toLocaleString():'—'"></td><td class="font-mono font-bold" x-text="'PKR '+entry.balance.toLocaleString()"></td></tr></template></tbody></table><div x-show="!ledgerEntries.length" style="text-align:center;padding:24px;color:var(--muted);">No ledger entries yet</div></div></div>
+                </div>
+
+                <!-- ═══════════ EXPENSES ═══════════ -->
+                <div x-show="currentPage==='expenses'" x-transition>
+                    <div class="page-header"><h1><span class="page-icon"><i class="fas fa-money-bill"></i></span> Expenses</h1></div>
+                    <div class="card mb-4">
+                        <div class="field-row mb-3"><div class="field"><label>Date</label><input type="date" x-model="expenseForm.date"></div><div class="field"><label>Category</label><input type="text" x-model="expenseForm.category" placeholder="e.g. Rent, Utilities, Salaries"></div></div>
+                        <div class="field-row mb-3"><div class="field"><label>Note</label><input type="text" x-model="expenseForm.note" placeholder="Optional description"></div><div class="field"><label>Amount (PKR)</label><input type="number" x-model="expenseForm.amount"></div></div>
+                        <button @click="saveExpense()" class="btn btn-primary"><i class="fas fa-plus"></i> Add Expense</button>
+                    </div>
+                    <div class="card"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Note</th><th>Amount</th></tr></thead><tbody><template x-for="exp in expenses"><tr><td class="font-mono text-xs text-muted" x-text="new Date(exp.date).toLocaleDateString()"></td><td><span class="badge badge-amber" x-text="exp.category"></span></td><td class="text-muted text-sm" x-text="exp.note||'—'"></td><td class="text-rose font-mono font-bold">PKR <span x-text="exp.amount.toLocaleString()"></span></td></tr></template><tr x-show="!expenses.length"><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">No expenses recorded yet</td></tr></tbody></table></div></div>
+                </div>
+
+                <!-- ═══════════ ASSETS ═══════════ -->
+                <div x-show="currentPage==='assets'" x-transition>
+                    <div class="page-header"><h1><span class="page-icon"><i class="fas fa-warehouse"></i></span> Assets</h1></div>
+                    <div class="card mb-4">
+                        <div class="field-row mb-3"><div class="field"><label>Asset Name</label><input type="text" x-model="assetForm.name" placeholder="e.g. Cash Register, Laptop"></div><div class="field"><label>Category</label><input type="text" x-model="assetForm.category" placeholder="e.g. Electronics, Furniture"></div></div>
+                        <div class="field-row mb-3"><div class="field"><label>Purchase Cost (PKR)</label><input type="number" x-model="assetForm.cost" placeholder="0"></div><div class="field"><label>Current Value (PKR)</label><input type="number" x-model="assetForm.currentValue" placeholder="0"></div></div>
+                        <button @click="saveAsset()" class="btn btn-primary"><i class="fas fa-plus"></i> Add Asset</button>
+                    </div>
+                    <div class="card"><div class="table-wrap"><table><thead><tr><th>Asset</th><th>Category</th><th>Purchase Cost</th><th>Current Value</th><th>Depreciation</th></tr></thead><tbody><template x-for="a in assets"><tr><td class="font-bold" x-text="a.name"></td><td class="text-muted" x-text="a.category||'—'"></td><td class="font-mono">PKR <span x-text="(a.cost||0).toLocaleString()"></span></td><td class="font-mono text-accent">PKR <span x-text="(a.currentValue||0).toLocaleString()"></span></td><td class="text-rose font-mono" x-text="'−PKR '+((a.cost||0)-(a.currentValue||0)).toLocaleString()"></td></tr></template><tr x-show="!assets.length"><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No assets recorded yet</td></tr></tbody></table></div></div>
+                </div>
+
+                <!-- ═══════════ JAZZCASH ═══════════ -->
+                <div x-show="currentPage==='jazzcash'" x-transition>
+                    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;"><div><h1><span class="page-icon" style="background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.2);color:var(--purple);"><i class="fas fa-mobile-alt"></i></span> JazzCash Wallet</h1></div><button @click="jazzcash.settingsOpen=!jazzcash.settingsOpen;saveJazzcashData()" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i> Settings</button></div>
+                    <div class="wallet-card mb-4"><div class="text-xs text-muted mb-2">Wallet Balance</div><div style="font-size:2rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--purple);">PKR <span x-text="jazzcash.balance.toLocaleString()"></span></div><div class="text-xs text-muted mt-2" x-text="jazzcash.transactions.length + ' transactions recorded'"></div></div>
+                    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px;"><div class="card card-sm"><div class="text-xs text-muted">Received Total</div><div class="font-bold" style="margin-top:8px;">PKR <span x-text="jazzcashTotalReceived.toLocaleString()"></span></div></div><div class="card card-sm"><div class="text-xs text-muted">Sent Total</div><div class="font-bold" style="margin-top:8px;color:var(--rose);">PKR <span x-text="jazzcashTotalSent.toLocaleString()"></span></div></div><div class="card card-sm"><div class="text-xs text-muted">Net Flow</div><div class="font-bold" style="margin-top:8px;">PKR <span x-text="jazzcashNetFlow.toLocaleString()"></span></div></div></div>
+                    <div class="card mb-4" x-show="jazzcash.settingsOpen" x-transition><div class="section-label">JazzCash Settings</div><div class="field-row mb-3"><div class="field"><label>Default Profit Margin (%)</label><input type="number" min="0" x-model.number="jazzcash.profitMargin" @change="saveJazzcashData()"></div><div class="field"><label>Transaction Fee (%)</label><input type="number" min="0" x-model.number="jazzcash.transactionFee" @change="saveJazzcashData()"></div></div><div class="field-row"><div class="field"><label>Estimated Profit</label><input type="text" readonly :value="'PKR '+jazzcashEstimatedProfit.toLocaleString()"></div><div class="field"><label>Estimated JazzCash Fee</label><input type="text" readonly :value="'PKR '+jazzcashEstimatedFee.toLocaleString()"></div></div></div>
+                    <div class="grid-2"><div class="card"><div class="section-label">New Transaction</div><div class="field mb-3"><label>Transaction Type</label><select x-model="jazzcash.transactionType"><option value="received">Receive Money</option><option value="sent">Send Money</option><option x-show="!jazzcash.initialSet" value="initial">Set Initial Balance</option></select></div><div class="field mb-3"><label>Amount (PKR)</label><input type="number" x-model="jazzcash.amount"></div><div class="field mb-3"><label>Note</label><input type="text" x-model="jazzcash.note" placeholder="Optional note"></div><button @click="recordJazzcashTransaction()" class="btn btn-full" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;box-shadow:0 4px 14px rgba(124,58,237,.3);"><i class="fas fa-exchange-alt"></i> Add Transaction</button><div x-show="jazzcash.statusMessage" class="status-bar mt-2" :class="jazzcash.statusType==='success'?'status-success':'status-error'"><span x-text="jazzcash.statusMessage"></span></div></div><div class="card"><div class="section-label">Transaction History</div><div class="scroll-y max-h-96"><template x-for="tx in jazzcash.transactions"><div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);"><div><div class="text-sm font-bold"><span x-show="tx.type==='initial'" style="color:var(--purple);">Initial Balance Set</span><span x-show="tx.type==='received'" style="color:var(--accent);">Money Received</span><span x-show="tx.type==='sent'" style="color:var(--rose);">Money Sent</span></div><div class="text-xs text-muted" x-text="tx.note||new Date(tx.date).toLocaleString()"></div></div><span class="font-mono font-bold" :class="tx.type==='received'||tx.type==='initial'?'text-accent':'text-rose'" x-text="(tx.type==='received'||tx.type==='initial'?'+':'-')+'PKR '+tx.amount.toLocaleString()"></span></div></template><div x-show="!jazzcash.transactions.length" style="text-align:center;padding:24px;color:var(--muted);">No transactions yet</div></div></div></div>
+                </div>
+
+                <!-- ═══════════ SETTINGS ═══════════ -->
+                <div x-show="currentPage==='settings'" x-transition>
+                    <div class="page-header"><h1><span class="page-icon"><i class="fas fa-sliders-h"></i></span> Settings</h1></div>
+                    <div style="max-width:720px;">
+                        <div class="card mb-4">
+                            <div class="section-label">Shop Information</div>
+                            <div class="field-row mb-3"><div class="field"><label>Shop Name</label><input type="text" x-model="settings.shopName"></div><div class="field"><label>Phone Number</label><input type="text" x-model="settings.shopPhone" placeholder="e.g. 0300-1234567 or +92 300 1234567" pattern="(\+92|0)3[0-9]{2}[- ]?[0-9]{7}"></div></div>
+                            <div class="field mb-3"><label>Shop Address</label><textarea x-model="settings.shopAddress" rows="2"></textarea></div>
+                            <div class="field-row"><div class="field"><label>Receipt Header Message</label><input type="text" x-model="settings.receiptHeader" placeholder="e.g. Welcome to our shop"></div><div class="field"><label>Receipt Footer Message</label><input type="text" x-model="settings.receiptFooter" placeholder="e.g. Thank you! Come again."></div></div>
+                        </div>
+                        <div class="card mb-4">
+                            <div class="section-label">Logo Settings</div>
+                            <div class="field-row mb-3"><div class="field"><label>Sidebar Logo</label><div class="logo-upload-area"><img class="logo-preview-thumb" :src="settings.sidebarLogoDataUrl || 'logo/logo.png'" alt="Sidebar Logo" onerror="this.style.display='none'"><button type="button" class="btn btn-secondary btn-sm" @click="$refs.sidebarLogoInput.click()"><i class="fas fa-folder-open"></i> Browse</button><button type="button" class="btn btn-ghost btn-sm" @click="settings.sidebarLogoDataUrl='';saveSettings()" x-show="settings.sidebarLogoDataUrl"><i class="fas fa-times"></i> Clear</button><input x-ref="sidebarLogoInput" type="file" accept="image/*" style="position:absolute;left:-9999px;width:1px;height:1px;" @change="onSidebarLogoSelect($event)"></div></div></div>
+                        </div>
+                        <div class="card mb-4">
+                            <div class="section-label">Billing Preferences</div>
+                            <div class="field-row mb-3"><div class="field"><label>Default Payment Method</label><select x-model="settings.defaultPaymentMethod"><option value="cash">Cash</option><option value="online">Online</option></select></div><div class="field"><label>Barcode Scanner Terminator</label><select x-model="settings.barcodeTerminator"><option value="Enter">Enter Key</option><option value="Tab">Tab Key</option></select></div></div>
+                            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;"><input type="checkbox" x-model="settings.autoPrint" style="width:auto;"> Auto-print receipt after sale</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;"><input type="checkbox" x-model="settings.showCashInHand" style="width:auto;"> Show cash in hand on dashboard</label></div>
+                        </div>
+                        <div class="card mb-4"><div class="section-label">Display</div><div class="field" style="max-width:200px;"><label>Page Zoom (%)</label><input type="number" x-model="settings.pageZoom" min="100" max="150" step="5"></div></div>
+                        <div class="card mb-4">
+                            <div class="section-label">Receipt Layout</div>
+                            <div class="field-row mb-3"><div class="field"><label>Receipt Style</label><select x-model="settings.receiptLayout"><option value="modern">Modern</option><option value="classic">Classic</option><option value="compact">Compact</option></select></div><div class="field"><label>Item Display Mode</label><select x-model="settings.receiptItemMode"><option value="detailed">Detailed</option><option value="compact">Compact</option></select></div></div>
+                            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;"><input type="checkbox" x-model="settings.receiptShowAddress" style="width:auto;"> Show address on receipt</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;"><input type="checkbox" x-model="settings.receiptShowDate" style="width:auto;"> Show date on receipt</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;"><input type="checkbox" x-model="settings.receiptShowPaymentMethod" style="width:auto;"> Show payment method</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;"><input type="checkbox" x-model="settings.receiptShowCustomer" style="width:auto;"> Show customer name</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;"><input type="checkbox" x-model="settings.receiptShowFooter" style="width:auto;"> Show footer message</label></div>
+                            <div style="margin-top:10px;"><div class="section-label">Receipt Preview</div><div style="background:var(--surface2);border:1px solid var(--border);padding:12px;border-radius:12px;color:var(--text);margin-top:8px;" x-html="receiptPreviewHtml()"></div></div>
+                        </div>
+                        <div style="display:flex;gap:8px;"><button @click="saveSettings()" class="btn btn-primary btn-lg" style="flex:1;justify-content:center;"><i class="fas fa-save"></i> Save Settings</button><button @click="testPrinter()" class="btn btn-secondary btn-lg"><i class="fas fa-print"></i> Test Print</button></div>
+                        <div class="card mb-4">
+                            <div class="section-label">Backup Settings</div>
+                            <div style="display:flex;gap:12px;flex-direction:column;max-width:520px;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem;"><input type="checkbox" x-model="settings.backup.enabled" style="width:auto;"> Enable automatic backups</label>
+                                <div class="field" style="max-width:320px;"><label>Backup Frequency</label><select x-model="settings.backup.frequency"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="custom">Custom</option></select></div>
+                                <div class="field" x-show="settings.backup.frequency==='custom'"><label>Custom Schedule</label><input type="text" x-model="settings.backup.custom" placeholder="E.g. every 2 days or cron expression"></div>
+                                <div class="field"><label>Backup Location</label><div style="display:flex;gap:8px;align-items:center;"><input type="text" x-model="settings.backup.location" placeholder="Click 'Select Folder' to choose backup location (e.g. Documents)" readonly><button type="button" class="btn btn-secondary btn-sm" @click="chooseBackupLocation()"><i class="fas fa-folder-open"></i> Select Folder</button><button type="button" class="btn btn-ghost btn-sm" @click="settings.backup.location='';saveSettings()" x-show="settings.backup.location"><i class="fas fa-times"></i> Clear</button></div><div class="text-xs text-muted mt-2">Uses your browser's folder picker. On first use, manually navigate to your Documents folder. Later selections will remember the last folder.</div></div>
+                            </div>
+                        </div>
+                        <div x-show="settingsStatusMessage" class="status-bar status-success mt-3"><span x-text="settingsStatusMessage"></span></div>
+                    </div>
+                </div>
+
+            </main>
+
+            <footer style="border-top:1px solid var(--border);padding:12px 24px;text-align:center;font-size:.72rem;color:var(--muted);background:var(--surface);flex-shrink:0;">
+                Khubaib Enterprises POS Pro · © 2026 · All Rights Reserved
+            </footer>
+        </div>
+
+        <!-- MODALS (Info, Delete, Unknown Barcode, Expiry, Customer, Supplier, Product) -->
+        <div x-show="infoModal.open" class="modal-overlay" @click.self="infoModal.open=false"><div class="modal" style="max-width:360px;"><div class="modal-header"><h3 x-text="infoModal.title"></h3></div><div class="modal-body"><p style="color:var(--muted)" x-text="infoModal.message"></p></div><div class="modal-footer"><button @click="infoModal.open=false" class="btn btn-primary">OK</button></div></div></div>
+        <div x-show="deleteConfirm.open" class="modal-overlay"><div class="modal" style="max-width:340px;"><div class="modal-header"><h3>Delete Product</h3></div><div class="modal-body"><p style="color:var(--muted);">This action cannot be undone. Are you sure you want to delete this product?</p></div><div class="modal-footer"><button @click="deleteConfirm.open=false" class="btn btn-ghost">Cancel</button><button @click="confirmDelete()" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></div></div></div>
+        <div x-show="unknownBarcodeModal.open" class="modal-overlay" @click.self="unknownBarcodeModal.open=false"><div class="modal" style="max-width:380px;"><div class="modal-header"><h3>Item Not in Inventory</h3></div><div class="modal-body"><p style="color:var(--muted);">Barcode <strong x-text="unknownBarcodeModal.code"></strong> was not found in your inventory. Would you like to add it now?</p></div><div class="modal-footer"><button @click="unknownBarcodeModal.open=false" class="btn btn-ghost">Cancel</button><button @click="addUnknownProduct()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add to Inventory</button></div></div></div>
+        <div x-show="expiryConfirm.open" class="modal-overlay" @click.self="expiryConfirm.open=false"><div class="modal" style="max-width:380px;"><div class="modal-header"><h3>Expiry Warning</h3></div><div class="modal-body"><p style="color:var(--muted);" x-text="expiryConfirm.message"></p><p style="color:var(--muted);margin-top:10px;">Do you want to remove this item from inventory, or continue selling it?</p></div><div class="modal-footer"><button @click="expiryConfirm.open=false" class="btn btn-ghost">Cancel</button><button @click="deleteExpiredProduct()" class="btn btn-danger"><i class="fas fa-trash"></i> Delete from Inventory</button><button @click="continueSaleWithExpiredProduct()" class="btn btn-primary">Sell Anyway</button></div></div></div>
+        <div x-show="customerModal.open" class="modal-overlay"><div class="modal" style="max-width:400px;"><div class="modal-header"><h3>New Customer</h3><button @click="customerModal.open=false" style="background:none;border:none;color:var(--muted);cursor:pointer;"><i class="fas fa-times"></i></button></div><div class="modal-body"><div class="field"><label>Full Name</label><input type="text" x-model="customerModal.form.name" placeholder="Customer full name"></div><div class="field"><label>Phone Number</label><input type="text" x-model="customerModal.form.phone" placeholder="e.g. 0300-1234567 or +92 300 1234567" pattern="(\+92|0)3[0-9]{2}[- ]?[0-9]{7}"></div><div class="field"><label>Address</label><input type="text" x-model="customerModal.form.address" placeholder="Optional address"></div></div><div class="modal-footer"><button @click="customerModal.open=false" class="btn btn-ghost">Cancel</button><button @click="saveCustomer()" class="btn btn-primary"><i class="fas fa-user-plus"></i> Save Customer</button></div></div></div>
+        <div x-show="supplierModal.open" class="modal-overlay"><div class="modal" style="max-width:380px;"><div class="modal-header"><h3>New Supplier</h3><button @click="supplierModal.open=false" style="background:none;border:none;color:var(--muted);cursor:pointer;"><i class="fas fa-times"></i></button></div><div class="modal-body"><div class="field"><label>Supplier Name</label><input type="text" x-model="supplierModal.form.name" placeholder="Company or person name"></div><div class="field"><label>Phone Number</label><input type="text" x-model="supplierModal.form.phone" placeholder="e.g. 0300-1234567 or +92 300 1234567" pattern="(\+92|0)3[0-9]{2}[- ]?[0-9]{7}"></div><div class="field"><label>Address</label><input type="text" x-model="supplierModal.form.address" placeholder="Optional address"></div></div><div class="modal-footer"><button @click="supplierModal.open=false" class="btn btn-ghost">Cancel</button><button @click="saveSupplier()" class="btn btn-primary">Save Supplier</button></div></div></div>
+        <div x-show="productModal.open" class="modal-overlay"><div class="modal" style="max-width:580px;"><div class="modal-header"><h3 x-text="productModal.editing ? 'Edit Product' : 'Add New Product'"></h3><button @click="productModal.open=false" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;"><i class="fas fa-times"></i></button></div><div class="modal-body"><div class="field-row"><div class="field"><label>Product Name</label><input type="text" x-model="productModal.form.name" placeholder="e.g. Basmati Rice 5kg"></div><div class="field"><label>Barcode</label><input type="text" x-model="productModal.form.barcode" placeholder="Scan or type barcode"></div></div><div class="field-row"><div class="field"><label>Unit of Measurement</label><input type="text" x-model="productModal.form.unit" placeholder="e.g. kg, piece, liter, packet"></div><div class="field"><label>Company / Brand Name</label><input type="text" x-model="productModal.form.companyName" placeholder="e.g. National Foods"></div></div><div class="field-row"><div class="field"><label>Category</label><input type="text" x-model="productModal.form.category" placeholder="e.g. Grocery, Oil, Rice"></div><div class="field"><label>Sale Type</label><select x-model="productModal.form.soldType"><option value="pack">By Pack or Unit (fixed quantity)</option><option value="open">Open or Loose (by weight)</option></select></div></div><div x-show="productModal.form.soldType==='open'" class="field-row"><div class="field"><label>Smaller Unit Name (e.g. gram, ml)</label><input type="text" x-model="productModal.form.smallerUnit" placeholder="e.g. g, ml, pcs"></div><div class="field"><label>Conversion Factor</label><input type="number" min="1" x-model="productModal.form.conversionFactor" placeholder="e.g. 1000 means 1 kg = 1000 g"><span class="text-xs text-muted mt-1" style="display:block;">How many smaller units fit in 1 main unit</span></div></div><div class="field-row"><div class="field"><label>Low Stock Alert (minimum quantity)</label><input type="number" x-model="productModal.form.lowStockThreshold" placeholder="e.g. 10"></div><div class="field"><label>Expiry Date</label><input type="date" x-model="productModal.form.expiryDate"></div></div><div class="stock-section"><div class="stock-section-title"><i class="fas fa-box" style="color:var(--amber);"></i> Present Stock (Already in Hand)</div><div class="field-row mb-3"><div class="field"><label>Present Stock Quantity</label><input type="number" x-model="productModal.form.presentStock" placeholder="How many units you already have" min="0"></div><div class="field" style="grid-column: span 1;"></div></div><div class="field-row"><div class="field"><label>Present Stock — Purchase Price (PKR per unit)</label><input type="number" x-model="productModal.form.purchasePrice" placeholder="Cost price you paid" min="0"></div><div class="field"><label>Present Stock — Selling Price (PKR per unit)</label><input type="number" x-model="productModal.form.sellingPrice" placeholder="Price you sell at" min="0"></div></div></div><div class="stock-section"><div class="stock-section-title"><i class="fas fa-truck" style="color:var(--blue);"></i> New Stock (Adding Now)</div><div class="field-row mb-3"><div class="field"><label>New Stock Quantity</label><input type="number" x-model="productModal.form.newStock" placeholder="Units being added now" min="0"></div><div class="field"></div></div><div class="field-row"><div class="field"><label>New Stock — Purchase Price (PKR per unit)</label><input type="number" x-model="productModal.form.newPurchasePrice" placeholder="Cost for this new batch" min="0"></div><div class="field"><label>New Stock — Selling Price (PKR per unit)</label><input type="number" x-model="productModal.form.newSellingPrice" placeholder="Selling price for new batch" min="0"></div></div></div><div class="stock-total-display"><span class="stock-total-label">Total Stock After Saving</span><span class="stock-total-value" x-text="(parseFloat(productModal.form.presentStock)||0) + (parseFloat(productModal.form.newStock)||0) + ' ' + (productModal.form.unit||'units')"></span></div><div class="field"><label>Product Image (Optional)</label><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;"><button type="button" class="btn btn-secondary btn-sm" @click="$refs.productImageInput.click()"><i class="fas fa-image"></i> Browse Image</button><span class="text-xs text-muted" x-show="!productModal.form.image">No image selected</span><span class="text-xs text-accent" x-show="productModal.form.image">Image selected</span><input x-ref="productImageInput" type="file" accept="image/*" style="position:absolute;left:-9999px;width:1px;height:1px;" @change="onProductImageSelect($event)"></div></div></div><div class="modal-footer"><button @click="productModal.open=false" class="btn btn-ghost">Cancel</button><button @click="saveProduct()" class="btn btn-primary"><i class="fas fa-save"></i> Save Product</button></div></div></div>
+
+        <!-- RECEIPT PRINT AREA -->
+        <div class="receipt-print" id="receiptPrintArea" style="display:none;"><div style="text-align:center;font-size:14px;font-weight:bold;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px;" x-text="settings.shopName"></div><div style="text-align:center;font-size:10px;" x-text="settings.shopAddress"></div><div style="text-align:center;font-size:10px;margin-bottom:6px;" x-text="settings.shopPhone"></div><div style="text-align:center;font-size:10px;margin-bottom:6px;" x-text="settings.receiptHeader"></div><div style="font-size:10px;margin-bottom:4px;">Invoice: <span x-text="receiptData.id"></span> | <span x-text="receiptData.date"></span></div><div style="font-size:10px;">Customer: <span x-text="receiptData.customerName||'Walk-in'"></span> | <span x-text="receiptData.paymentMethod"></span></div><table style="width:100%;font-size:10px;margin-top:6px;border-collapse:collapse;"><thead><tr><th style="text-align:left;">Item</th><th>Qty</th><th>Price</th><th style="text-align:right;">Total</th></tr></thead><tbody><template x-for="item in receiptData.items"><tr><td x-text="item.name"></td><td x-text="item.quantity+(item.smallerUnit||'')"></td><td>PKR <span x-text="item.sellingPrice"></span></td><td style="text-align:right;">PKR <span x-text="(getCartItemTotal(item)).toLocaleString()"></span></td></tr></template></tbody></table><div style="border-top:1px dashed #000;margin-top:6px;padding-top:4px;font-size:11px;"><div style="display:flex;justify-content:space-between;"><span>Subtotal:</span><span>PKR <span x-text="receiptData.subtotal?.toLocaleString()"></span></span></div><div style="display:flex;justify-content:space-between;font-weight:bold;"><span>TOTAL:</span><span>PKR <span x-text="receiptData.total.toLocaleString()"></span></span></div><div style="display:flex;justify-content:space-between;"><span>Paid:</span><span>PKR <span x-text="receiptData.paid?.toLocaleString()"></span></span></div></div><div style="text-align:center;font-size:10px;margin-top:8px;border-top:1px dashed #000;padding-top:6px;" x-text="settings.receiptFooter"></div><div style="text-align:center;font-size:9px;margin-top:6px;color:#6b7280;">Khubaib Enterprises — Custom web, mobile & software solutions. Call: 0318 437 5221</div></div>
+    </div>
+
+    <script>
+        window.posApp = function posApp() {
+            return {
+                isLocked: false,
+                sidebarOpen: false,
+                sidebarCollapsed: false,
+                hoverExpand: false,
+                currentPage: 'dashboard',
+                liveTime: '',
+                dashboard: {
+                    todaySalesTotal: 0, todayInvoices: 0, cashInHand: 0,
+                    lowStock: [], lowStockCount: 0, creditCustomers: [], creditCustomersCount: 0,
+                    expiringSoon: [], expiringSoonCount: 0, overdueCustomers: [], overdueCustomersCount: 0,
+                    todayPayments: 0, detailOpen: false, detailTitle: '', detailItems: [],
+                    notepadText: '', calculatorInput: '', calculatorResult: '0', activeTool: ''
+                },
+                addCashAmount: 0,
+                bill: {
+                    search: '', searchResults: [], cart: [], total: 0, discountAmount: 0,
+                    paymentMethod: 'cash', amountPaid: 0, loanCustomerId: '',
+                    statusMessage: '', statusType: '', changeAmount: 0
+                },
+                purchase: {
+                    supplierId: '', selectedProductId: '', customPrice: 0, quantity: 1,
+                    items: [], total: 0, statusMessage: '', statusType: ''
+                },
+                khata: {
+                    selectedCustomer: null, ledger: [], paymentAmount: 0,
+                    paymentMethodType: 'cash', creditAmount: 0, statusMessage: '', statusType: ''
+                },
+                normalizePakistanPhone(phone) {
+                    if (!phone) return null;
+                    let s = String(phone).replace(/\D/g,'');
+                    if (s.startsWith('0092')) s = '0' + s.slice(4);
+                    if (s.startsWith('92') && s.length===12) s = '0' + s.slice(2);
+                    if (s.length===10 && s.startsWith('3')) s = '0' + s;
+                    if (s.length===11 && s.startsWith('03')) return s;
+                    return null;
+                },
+                formatPakistanPhone(phone) {
+                    const s = this.normalizePakistanPhone(phone);
+                    if (!s) return phone || '';
+                    return s.slice(0,4) + '-' + s.slice(4);
+                },
+                validatePakistanPhone(phone) {
+                    return !!this.normalizePakistanPhone(phone);
+                },
+                formatCurrencyPKR(amount) {
+                    if (amount === null || amount === undefined || amount === '') return '';
+                    try { return new Intl.NumberFormat('en-PK', { style:'currency', currency:'PKR' }).format(Number(amount)); } catch(e) { return amount; }
+                },
+                ensurePositiveNumber(v) { const n = Number(v); return !isNaN(n) && n>=0; },
+                allProducts: [],
+                suppliers: [],
+                customers: [],
+                sales: [],
+                assets: [],
+                reports: {
+                    startDate: '', endDate: '', productSummary: [], categorySummary: [],
+                    totalSales: 0, totalProfit: 0
+                },
+                ledgerEntries: [],
+                ledgerSummary: { totalDebit: 0, totalCredit: 0, endingBalance: 0, totalPayments: 0, totalProfit: 0 },
+                expenses: [],
+                expenseForm: { date: new Date().toISOString().slice(0,10), category: 'Shop', amount: 0, note: '' },
+                assetForm: { name: '', purchaseDate: new Date().toISOString().slice(0,10), cost: 0, currentValue: 0, category: '', notes: '' },
+                returns: { selectedSaleId: '', saleDetails: { items: [] }, refundAmount: 0, statusMessage: '', statusType: '' },
+                paymentHistory: [],
+                jazzcash: {
+                    balance: 0, transactions: [], transactionType: 'received', amount: 0, note: '',
+                    initialSet: false, statusMessage: '', statusType: '', settingsOpen: false,
+                    profitMargin: 20, transactionFee: 2
+                },
+                analyticsPeriod: 'today',
+                analytics: { totalSales: 0, profit: 0, topProductsHtml: '', chartType: 'time', topGroupsHtml: '' },
+                productSearch: '',
+                companiesSelectedCompany: '',
+                deleteConfirm: { open: false, productId: null },
+                expiryConfirm: { open: false, product: null, message: '' },
+                infoModal: { open: false, title: '', message: '' },
+                unknownBarcodeModal: { open: false, code: '' },
+                settings: {
+                    shopName: 'Khubaib Store', shopPhone: '+92 300 1234567',
+                    shopAddress: 'Main Bazar, Lahore',
+                    receiptHeader: 'Welcome to Khubaib Enterprises',
+                    receiptFooter: 'Thank you! Please come again.',
+                    receiptLayout: 'modern', receiptItemMode: 'detailed', receiptShowLogo: true,
+                    receiptShowAddress: true, receiptShowDate: true, receiptShowPaymentMethod: true,
+                    receiptShowCustomer: true, receiptShowFooter: true, showCashInHand: true,
+                    autoPrint: false, defaultPaymentMethod: 'cash', barcodeTerminator: 'Enter',
+                    pageZoom: 100, manualCashInHand: 0, lastInvoiceNumber: 0,
+                    sidebarLogoDataUrl: '', receiptLogoDataUrl: 'logo/logo.png',
+                    backup: { enabled: false, frequency: 'daily', location: '' }
+                },
+                settingsStatusMessage: '',
+                productModal: {
+                    open: false, editing: false, currentId: null,
+                    form: {
+                        name: '', barcode: '', unit: 'piece',
+                        purchasePrice: 0, sellingPrice: 0,
+                        presentStock: 0, newStock: 0,
+                        newPurchasePrice: 0, newSellingPrice: 0,
+                        lowStockThreshold: 10, soldType: 'pack',
+                        smallerUnit: '', conversionFactor: 1,
+                        image: '', companyName: '', category: '', expiryDate: ''
+                    }
+                },
+                customerModal: { open: false, form: {}, returnContext: null },
+                supplierModal: { open: false, form: {} },
+                receiptData: { id: '', date: '', items: [], total: 0, paid: 0, loanAmount: 0, subtotal: 0, customerName: '', paymentMethod: '' },
+                navItems: [
+                    { page: 'dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+                    { page: 'billing', label: 'Smart Billing', icon: 'fas fa-shopping-cart' },
+                    { page: 'purchase', label: 'Stock Purchase', icon: 'fas fa-truck' },
+                    { page: 'khata', label: 'Customer Khata', icon: 'fas fa-users' },
+                    { page: 'products', label: 'Product Master', icon: 'fas fa-boxes' },
+                    { page: 'companies', label: 'Companies', icon: 'fas fa-building' },
+                    { page: 'analytics', label: 'Analytics', icon: 'fas fa-chart-line' },
+                    { page: 'reports', label: 'Reports', icon: 'fas fa-chart-pie' },
+                    { page: 'ledger', label: 'General Ledger', icon: 'fas fa-book' },
+                    { page: 'expenses', label: 'Expenses', icon: 'fas fa-money-bill' },
+                    { page: 'assets', label: 'Assets', icon: 'fas fa-warehouse' },
+                    { page: 'returns', label: 'Returns', icon: 'fas fa-undo' },
+                    { page: 'jazzcash', label: 'JazzCash', icon: 'fas fa-mobile-alt' },
+                ],
+                scannerBuffer: '',
+                scannerTimeout: null,
+                get companyNames() { return [...new Set(this.allProducts.map(p => p.companyName).filter(Boolean))]; },
+                get filteredCompanyProducts() { return this.allProducts.filter(p => p.companyName === this.companiesSelectedCompany); },
+                get jazzcashTotalReceived() { return this.jazzcash.transactions.filter(t => t.type === 'received').reduce((s,t) => s+(t.amount||0), 0); },
+                get jazzcashTotalSent() { return this.jazzcash.transactions.filter(t => t.type === 'sent').reduce((s,t) => s+(t.amount||0), 0); },
+                get jazzcashNetFlow() { return this.jazzcashTotalReceived - this.jazzcashTotalSent; },
+                get jazzcashEstimatedProfit() { return Math.round(this.jazzcashTotalReceived * ((this.jazzcash.profitMargin||0)/100)); },
+                get jazzcashEstimatedFee() { return Math.round(this.jazzcashTotalSent * ((this.jazzcash.transactionFee||0)/100)); },
+                isMobileCheck() { return window.innerWidth < 1024; },
+                toggleSidebar() { if (this.isMobileCheck()) this.sidebarOpen = !this.sidebarOpen; else { this.sidebarCollapsed = !this.sidebarCollapsed; this.hoverExpand = false; localStorage.setItem('sbc', this.sidebarCollapsed); } },
+                getStore(k, d) { try { const v = localStorage.getItem('pos_'+k); return v ? JSON.parse(v) : d; } catch(e) { return d; } },
+                setStore(k, v) { localStorage.setItem('pos_'+k, JSON.stringify(v)); },
+                getCartItemTotal(item) {
+                    if (!item) return 0;
+                    if (item.soldType === 'open' && item.conversionFactor && item.conversionFactor > 0) {
+                        return Math.round((item.quantity * item.sellingPrice / item.conversionFactor) * 100) / 100;
+                    }
+                    return Math.round((item.quantity * item.sellingPrice) * 100) / 100;
+                },
+                async chooseBackupLocation() {
+                    if ('showDirectoryPicker' in window) {
+                        try {
+                            const dirHandle = await window.showDirectoryPicker();
+                            window.backupDirHandle = dirHandle;
+                            const dirName = dirHandle.name;
+                            this.settings.backup.location = dirName + ' (handle stored)';
+                            this.saveSettings();
+                            this.settingsStatusMessage = `Backup folder set to: ${dirName}`;
+                            setTimeout(() => this.settingsStatusMessage = '', 3000);
+                        } catch (err) {
+                            console.warn(err);
+                            this.settingsStatusMessage = 'Folder selection cancelled or not allowed.';
+                            setTimeout(() => this.settingsStatusMessage = '', 2500);
+                        }
+                    } else {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.webkitdirectory = true;
+                        input.directory = true;
+                        input.multiple = true;
+                        input.onchange = (e) => {
+                            const files = e.target.files;
+                            if (files.length > 0) {
+                                const folderName = files[0].webkitRelativePath.split('/')[0];
+                                this.settings.backup.location = folderName + ' (fallback mode)';
+                                this.saveSettings();
+                                this.settingsStatusMessage = `Backup folder (fallback) set to: ${folderName}`;
+                                setTimeout(() => this.settingsStatusMessage = '', 3000);
+                            }
+                        };
+                        input.click();
+                    }
+                },
+                init() {
+                    let key = 'pos_firstUse', f = localStorage.getItem(key), ts = f ? new Date(f) : new Date();
+                    if (!f) localStorage.setItem(key, ts.toISOString());
+                    if ((new Date() - ts) / 86400000 > 6) { this.isLocked = true; return; }
+                    let sbc = localStorage.getItem('sbc');
+                    if (sbc === 'true') this.sidebarCollapsed = true;
+                    if (!localStorage.getItem('pos_products')) localStorage.setItem('pos_products', JSON.stringify([
+                        { id:1, name:'Basmati Rice', barcode:'8901', unit:'kg', purchasePrice:120, sellingPrice:150, stock:45, lowStockThreshold:10, soldType:'pack', companyName:'National Foods', category:'Rice' },
+                        { id:2, name:'Sugar', barcode:'8902', unit:'kg', purchasePrice:70, sellingPrice:90, stock:8, lowStockThreshold:10, soldType:'open', smallerUnit:'g', conversionFactor:1000, companyName:'Shakarganj', category:'Grocery' },
+                        { id:3, name:'Cooking Oil', barcode:'8903', unit:'liter', purchasePrice:200, sellingPrice:250, stock:20, lowStockThreshold:5, soldType:'pack', companyName:'Dalda', category:'Oil' },
+                        { id:4, name:'Wheat Flour', barcode:'8904', unit:'kg', purchasePrice:55, sellingPrice:70, stock:3, lowStockThreshold:10, soldType:'pack', companyName:'Sunridge', category:'Grocery' },
+                    ]));
+                    if (!localStorage.getItem('pos_customers')) localStorage.setItem('pos_customers', JSON.stringify([
+                        { id:101, name:'Ramesh Sharma', phone:'9812345678', balance:1200, address:'Model Town' },
+                        { id:102, name:'Sana Khan', phone:'03001234567', balance:0, address:'Gulberg' }
+                    ]));
+                    if (!localStorage.getItem('pos_suppliers')) localStorage.setItem('pos_suppliers', JSON.stringify([
+                        { id:201, name:'Wholesale Mart', phone:'9876543210', address:'Industrial Area' }
+                    ]));
+                    this.settings = { ...this.settings, ...this.getStore('settings', {}) };
+                    if (!this.settings.receiptLogoDataUrl) { this.settings.receiptLogoDataUrl = 'logo/logo.png'; this.setStore('settings', this.settings); }
+                    this.loadProducts(); this.loadCustomers(); this.loadSuppliers(); this.loadSales(); this.loadExpenses(); this.loadAssets(); this.loadLedgerEntries(); this.loadJazzcashData(); this.loadPaymentHistory(); this.loadDashboardTools(); this.loadDashboardData(); this.loadReports(); this.loadAnalytics();
+                    document.body.style.zoom = this.settings.pageZoom / 100;
+                    this.liveTime = new Date().toLocaleTimeString('en-PK', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+                    setInterval(() => { this.liveTime = new Date().toLocaleTimeString('en-PK', { hour:'2-digit', minute:'2-digit', second:'2-digit' }); }, 1000);
+                    document.addEventListener('keydown', (e) => {
+                        if (this.dashboard.activeTool) { if (e.key === 'Escape') { this.dashboard.activeTool = ''; if (this.$refs.calculatorInput) this.$refs.calculatorInput.blur(); if (this.$refs.notepadText) this.$refs.notepadText.blur(); } return; }
+                        if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return;
+                        let term = this.settings.barcodeTerminator || 'Enter';
+                        if (e.key === term && this.scannerBuffer.trim()) { e.preventDefault(); this.processScannedBarcode(this.scannerBuffer.trim()); this.scannerBuffer = ''; if (this.scannerTimeout) clearTimeout(this.scannerTimeout); }
+                        else if (/^[0-9]$/.test(e.key)) { this.scannerBuffer += e.key; if (this.scannerTimeout) clearTimeout(this.scannerTimeout); this.scannerTimeout = setTimeout(() => { if (this.scannerBuffer.trim()) this.processScannedBarcode(this.scannerBuffer.trim()); this.scannerBuffer = ''; }, 300); }
+                    });
+                },
+                processScannedBarcode(code) {
+                    code = (code||'').toString().trim();
+                    if (!code) return;
+                    let prod = this.allProducts.find(p => String(p.barcode) === code);
+                    if (!prod && /^\d+$/.test(code)) prod = this.allProducts.find(p => String(Number(p.barcode)) === String(Number(code)));
+                    if (!prod) prod = this.allProducts.find(p => p.name && p.name.toLowerCase().includes(code.toLowerCase()));
+                    if (prod) { if (this.currentPage !== 'billing') this.navigateTo('billing'); this.addToCart(prod); this.bill.search = ''; }
+                    else { this.unknownBarcodeModal.code = code; this.unknownBarcodeModal.open = true; }
+                },
+                handleBarcodeEnter() { if (this.bill.search.trim()) this.processScannedBarcode(this.bill.search.trim()); this.bill.search = ''; },
+                addUnknownProduct() { const code = this.unknownBarcodeModal.code; this.unknownBarcodeModal.open = false; this.productModal.open = true; this.productModal.editing = false; this.productModal.currentId = null; this.productModal.form = { name: '', barcode: code, unit: 'piece', purchasePrice: 0, sellingPrice: 0, presentStock: 0, newStock: 0, newPurchasePrice: 0, newSellingPrice: 0, lowStockThreshold: 10, soldType: 'pack', smallerUnit: '', conversionFactor: 1, image: '', companyName: '', category: '', expiryDate: '' }; },
+                loadProducts() { this.allProducts = this.getStore('products', []); this.loadDashboardLowStock(); },
+                loadCustomers() { this.customers = this.getStore('customers', []); },
+                loadSuppliers() { this.suppliers = this.getStore('suppliers', []); },
+                loadDashboardTools() { this.dashboard.notepadText = this.getStore('dashboard_notepad', ''); this.dashboard.calculatorInput = ''; this.dashboard.calculatorResult = '0'; },
+                loadSales() { this.sales = this.getStore('sales', []); },
+                loadExpenses() { this.expenses = this.getStore('expenses', []); },
+                loadAssets() { this.assets = this.getStore('assets', []); },
+                loadLedgerEntries() { this.ledgerEntries = this.getStore('ledgerEntries', []); let totalDebit = this.ledgerEntries.reduce((s,e) => s+(e.debit||0),0); let totalCredit = this.ledgerEntries.reduce((s,e) => s+(e.credit||0),0); let endingBalance = this.ledgerEntries.length ? this.ledgerEntries[0].balance||0 : 0; let totalPayments = this.getStore('paymentHistory',[]).reduce((s,t)=>s+(t.amount||0),0); let totalProfit = this.getStore('sales',[]).reduce((s,sale)=>s+(sale.profit||0),0); this.ledgerSummary = { totalDebit, totalCredit, endingBalance, totalPayments, totalProfit }; },
+                loadJazzcashData() { let s = this.getStore('jazzcash', null); if (s) { this.jazzcash.balance = s.balance || 0; this.jazzcash.transactions = s.transactions || []; this.jazzcash.initialSet = s.initialSet || false; this.jazzcash.settingsOpen = s.settingsOpen || false; this.jazzcash.profitMargin = s.profitMargin || 20; this.jazzcash.transactionFee = s.transactionFee || 2; } },
+                saveJazzcashData() { this.setStore('jazzcash', { balance: this.jazzcash.balance, transactions: this.jazzcash.transactions, initialSet: this.jazzcash.initialSet, settingsOpen: this.jazzcash.settingsOpen, profitMargin: this.jazzcash.profitMargin, transactionFee: this.jazzcash.transactionFee }); },
+                loadPaymentHistory() { let hist = this.getStore('paymentHistory', []); let jazz = this.jazzcash.transactions.map(t => ({ id: t.id, date: t.date, type: 'JazzCash', method: 'jazzcash', amount: t.amount, reference: t.type })); this.paymentHistory = [...hist, ...jazz].sort((a,b) => new Date(b.date) - new Date(a.date)); },
+                onProductImageSelect(e) { const file = e.target.files && e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { this.productModal.form.image = ev.target.result; }; reader.readAsDataURL(file); },
+                onSidebarLogoSelect(e) { const file = e.target.files && e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { this.settings.sidebarLogoDataUrl = ev.target.result; this.saveSettings(); }; reader.readAsDataURL(file); },
+                onReceiptLogoSelect(e) { const file = e.target.files && e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { this.settings.receiptLogoDataUrl = ev.target.result; this.saveSettings(); }; reader.readAsDataURL(file); },
+                addPaymentHistory(type, method, amount, ref) { let hist = this.getStore('paymentHistory', []); hist.unshift({ id: Date.now(), date: new Date().toISOString(), type, method, amount, reference: ref }); this.setStore('paymentHistory', hist); this.loadPaymentHistory(); },
+                navigateTo(page) { this.currentPage = page; if (page === 'analytics') this.loadAnalytics(); if (page === 'reports') this.loadReports(); if (page === 'ledger') this.loadLedgerEntries(); if (page === 'expenses') this.loadExpenses(); if (page === 'assets') this.loadAssets(); if (page === 'returns') this.loadSales(); if (page === 'dashboard') this.loadDashboardData(); if (this.isMobileCheck()) this.sidebarOpen = false; },
+                get currentPageLabel() { return [...this.navItems, { page:'settings', label:'Settings' }].find(n => n.page === this.currentPage)?.label || 'Dashboard'; },
+                loadDashboardData() { let sales = this.getStore('sales', []), today = new Date().toISOString().slice(0,10); let todaySales = sales.filter(s => s.date?.slice(0,10) === today); this.dashboard.todaySalesTotal = todaySales.reduce((s,i) => s+(i.total||0),0); this.dashboard.todayInvoices = todaySales.length; this.dashboard.creditCustomers = this.customers.filter(c => (c.balance||0) > 0); this.dashboard.creditCustomersCount = this.dashboard.creditCustomers.length; this.dashboard.expiringSoon = this.allProducts.filter(p => { if (!p.expiryDate) return false; let diff = (new Date(p.expiryDate) - new Date()) / 86400000; return diff >= 0 && diff <= 30; }); this.dashboard.expiringSoonCount = this.dashboard.expiringSoon.length; this.dashboard.overdueCustomers = this.customers.filter(c => (c.balance||0) > (c.creditLimit||0) && (c.creditLimit||0) > 0); this.dashboard.overdueCustomersCount = this.dashboard.overdueCustomers.length; let jazzSent = this.jazzcash.transactions.filter(t => t.type==='sent').reduce((s,t) => s+(t.amount||0),0); let jazzReceived = this.jazzcash.transactions.filter(t => t.type==='received').reduce((s,t) => s+(t.amount||0),0); this.dashboard.cashInHand = (this.settings.manualCashInHand||0) + jazzSent - jazzReceived; this.loadDashboardLowStock(); },
+                loadDashboardLowStock() { this.dashboard.lowStock = this.allProducts.filter(p => (p.stock||0) <= (p.lowStockThreshold||10)); this.dashboard.lowStockCount = this.dashboard.lowStock.length; },
+                showDashboardDetail(type) { let today = new Date().toISOString().slice(0,10), sales = this.getStore('sales', []), payments = this.getStore('paymentHistory', []); this.dashboard.detailOpen = true; this.dashboard.detailItems = []; if (type === 'todaySales') this.dashboard.detailItems = sales.filter(s => s.date?.slice(0,10) === today).map(s => ({ title: 'INV-'+s.id, subtitle: new Date(s.date).toLocaleTimeString(), meta: 'PKR '+s.total.toLocaleString() })); else if (type === 'creditCustomers') this.dashboard.detailItems = this.dashboard.creditCustomers.map(c => ({ title: c.name, subtitle: c.phone||'No phone', meta: 'Due PKR '+(c.balance||0).toLocaleString() })); else if (type === 'expiringSoon') this.dashboard.detailItems = this.dashboard.expiringSoon.map(p => ({ title: p.name, subtitle: 'Expires: '+p.expiryDate, meta: p.stock+' '+p.unit })); else if (type === 'overdueCustomers') this.dashboard.detailItems = this.dashboard.overdueCustomers.map(c => ({ title: c.name, subtitle: 'Limit PKR '+(c.creditLimit||0), meta: 'Due PKR '+c.balance.toLocaleString() })); else if (type === 'cashInHand') this.dashboard.detailItems = [{ title: 'Cash in Hand', subtitle: 'Manual + JazzCash Sent - Received', meta: 'PKR '+this.dashboard.cashInHand.toLocaleString() }]; else if (type === 'jazzcash') this.dashboard.detailItems = this.jazzcash.transactions.slice(0,10).map(tx => ({ title: tx.type === 'initial' ? 'Initial Balance' : tx.type, subtitle: tx.note||new Date(tx.date).toLocaleDateString(), meta: 'PKR '+tx.amount.toLocaleString() })); this.dashboard.detailTitle = type.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()); },
+                addManualCash() { let amt = parseFloat(this.addCashAmount); if (amt > 0) { this.settings.manualCashInHand = (this.settings.manualCashInHand||0) + amt; this.saveSettings(); this.loadDashboardData(); this.addCashAmount = 0; } },
+                searchProducts() { let q = this.bill.search.trim().toLowerCase(); if (!q) this.bill.searchResults = []; else this.bill.searchResults = this.allProducts.filter(p => p.name.toLowerCase().includes(q) || (p.barcode||'').includes(q)).slice(0,20); },
+                addToCart(p, bypassExpiry = false) { if ((p.stock||0) <= 0) { this.infoModal.title = 'Out of Stock'; this.infoModal.message = p.name+' is currently out of stock.'; this.infoModal.open = true; return; } if (!bypassExpiry && this.isProductExpiring(p)) { this.expiryConfirm.product = p; this.expiryConfirm.message = this.expiryMessage(p); this.expiryConfirm.open = true; return; } let ex = this.bill.cart.find(i => i.id === p.id); if (ex) { let inc = ex.soldType==='open' ? 0.1 : 1; ex.quantity = Math.round((ex.quantity+inc)*100)/100; } else { const defaultQty = (p.soldType==='open' && p.conversionFactor && p.conversionFactor>0) ? p.conversionFactor : 1; this.bill.cart.push({ ...p, quantity: defaultQty }); } this.updateBillTotal(); },
+                isProductExpiring(p) { if (!p||!p.expiryDate) return false; let exp = new Date(p.expiryDate); if (Number.isNaN(exp.getTime())) return false; let today = new Date(); today.setHours(0,0,0,0); return Math.round((exp-today)/86400000) <= 7; },
+                expiryMessage(p) { if (!p||!p.expiryDate) return ''; let exp = new Date(p.expiryDate); if (Number.isNaN(exp.getTime())) return ''; let today = new Date(); today.setHours(0,0,0,0); let diffDays = Math.round((exp-today)/86400000); if (diffDays < 0) return p.name+' expired on '+p.expiryDate+'.'; if (diffDays === 0) return p.name+' expires today ('+p.expiryDate+').'; return p.name+' expires in '+diffDays+' day'+(diffDays===1?'':'s')+' on '+p.expiryDate+'.'; },
+                continueSaleWithExpiredProduct() { let prod = this.expiryConfirm.product; this.expiryConfirm.open = false; if (prod) this.addToCart(prod, true); },
+                deleteExpiredProduct() { let prod = this.expiryConfirm.product; if (prod) { this.allProducts = this.allProducts.filter(item => item.id !== prod.id); this.setStore('products', this.allProducts); this.bill.cart = this.bill.cart.filter(item => item.id !== prod.id); this.loadDashboardLowStock(); } this.expiryConfirm.open = false; },
+                decrementItem(idx) { let item = this.bill.cart[idx]; let dec = item.soldType==='open' ? 0.1 : 1; item.quantity = Math.round((item.quantity-dec)*100)/100; this.updateQuantityFromInput(idx); },
+                incrementItem(idx) { let item = this.bill.cart[idx]; let inc = item.soldType==='open' ? 0.1 : 1; item.quantity = Math.round((item.quantity+inc)*100)/100; this.updateBillTotal(); },
+                focusDashboardTool(tool) { this.dashboard.activeTool = tool; this.$nextTick(() => { if (tool==='notepad' && this.$refs.notepadText) this.$refs.notepadText.focus({ preventScroll: true }); if (tool==='calculator' && this.$refs.calculatorInput) { try { this.$refs.calculatorInput.focus({ preventScroll: true }); } catch(e) { this.$refs.calculatorInput.focus(); } } }); },
+                blurDashboardTool() { setTimeout(() => { if (!(this.$refs.notepadText?.matches(':focus') || this.$refs.calculatorInput?.matches(':focus'))) this.dashboard.activeTool = ''; }, 20); },
+                appendCalculator(value) { this.dashboard.calculatorInput = (this.dashboard.calculatorInput||'')+value; this.calculateExpression(); },
+                handleCalculatorKey(e) { if (/^[0-9+\-*/().%]$/.test(e.key)) this.appendCalculator(e.key); else if (e.key === 'Enter') this.calculateExpression(); else if (e.key === 'Backspace') { this.dashboard.calculatorInput = (this.dashboard.calculatorInput||'').slice(0,-1); this.calculateExpression(); } else if (e.key === 'c' || e.key === 'C') this.clearCalculator(); },
+                calculateExpression() { let expr = (this.dashboard.calculatorInput||'').replace(/[^0-9+\-*/().% ]/g,''); try { expr = expr.replace(/%/g,'/100'); let result = Function('return ('+expr+')')(); if (typeof result==='number' && Number.isFinite(result)) this.dashboard.calculatorResult = result.toString(); else this.dashboard.calculatorResult = 'Error'; } catch(e) { this.dashboard.calculatorResult = 'Error'; } },
+                clearCalculator() { this.dashboard.calculatorInput = ''; this.dashboard.calculatorResult = '0'; },
+                updateQuantityFromInput(idx) { let item = this.bill.cart[idx]; if (item.quantity <= 0) this.bill.cart.splice(idx, 1); this.updateBillTotal(); },
+                onPriceInput(idx, val) { const item = this.bill.cart[idx]; if (!item) return; const price = parseFloat(val); if (isNaN(price) || price <= 0) return; if (item.soldType === 'open' && item.conversionFactor && item.conversionFactor > 0) { item.quantity = Math.round((price * item.conversionFactor / item.sellingPrice) * 100) / 100; } else { item.quantity = Math.round((price / item.sellingPrice) * 100) / 100; } item.unitPrice = item.sellingPrice; this.updateBillTotal(); },
+                removeFromCart(idx) { this.bill.cart.splice(idx,1); this.updateBillTotal(); },
+                updateBillTotal() { let gross = this.bill.cart.reduce((s,i) => s+this.getCartItemTotal(i),0); let disc = parseFloat(this.bill.discountAmount)||0; this.bill.total = Math.max(0, Math.round((gross-disc)*100)/100); this.calculateChange(); },
+                calculateChange() { let paid = parseFloat(this.bill.amountPaid)||0; this.bill.changeAmount = paid > this.bill.total ? Math.round((paid-this.bill.total)*100)/100 : 0; },
+                completeSale(print) { if (!this.bill.cart.length) { this.infoModal.title='Empty Cart'; this.infoModal.message='Please add items before completing the sale.'; this.infoModal.open=true; return; } for (let item of this.bill.cart) { if (!this.ensurePositiveNumber(item.quantity) || item.quantity <= 0) { this.infoModal.title='Invalid Item Quantity'; this.infoModal.message='One or more items have invalid quantity.'; this.infoModal.open=true; return; } if (!this.ensurePositiveNumber(item.sellingPrice) || item.sellingPrice < 0) { this.infoModal.title='Invalid Item Price'; this.infoModal.message='One or more items have invalid price.'; this.infoModal.open=true; return; } } let total = this.bill.total, paid = parseFloat(this.bill.amountPaid)||0, loanAmount = 0; if (this.bill.paymentMethod==='loan') { paid=0; loanAmount=total; } else if (paid < total) loanAmount=total-paid; if (loanAmount>0 && !this.bill.loanCustomerId) { this.infoModal.title='Customer Required'; this.infoModal.message='Please select a customer for credit sales.'; this.infoModal.open=true; return; } for (let item of this.bill.cart) { let prod = this.allProducts.find(p => p.id===item.id); if (prod) prod.stock = Math.max(0, prod.stock-item.quantity); } this.setStore('products', this.allProducts); let sales = this.getStore('sales', []); let nextInvoice = (this.settings.lastInvoiceNumber||0)+1; this.settings.lastInvoiceNumber = nextInvoice; this.saveSettings(); let profit = this.bill.cart.reduce((s,i) => s+(this.getCartItemTotal(i)-(i.purchasePrice*(i.soldType==='open'&&i.conversionFactor?i.quantity/i.conversionFactor:i.quantity))),0); let sale = { id: nextInvoice, date: new Date().toISOString(), items: [...this.bill.cart], total, paid, loanAmount, customerId: loanAmount?this.bill.loanCustomerId:null, paymentMethod: this.bill.paymentMethod, profit: Math.round(profit*100)/100 }; sales.push(sale); this.setStore('sales', sales); if (loanAmount && this.bill.loanCustomerId) { let cust = this.customers.find(c => c.id===this.bill.loanCustomerId); if (cust) { cust.balance = (cust.balance||0)+loanAmount; this.setStore('customers', this.customers); this.addLedgerEntry({ date: new Date().toISOString(), description: 'Sale #'+sale.id+' credit', credit: loanAmount, balance: cust.balance }); } } if (paid>0) this.addPaymentHistory('Sale', this.bill.paymentMethod, paid, 'Inv #'+sale.id); this.receiptData = { id: 'INV-'+sale.id, date: new Date().toLocaleString(), items: [...this.bill.cart], subtotal: this.bill.cart.reduce((s,i) => s+this.getCartItemTotal(i),0), total, paid, loanAmount, customerName: loanAmount?(this.customers.find(c=>c.id===this.bill.loanCustomerId)?.name||'Walk-in'):'Walk-in', paymentMethod: this.bill.paymentMethod }; if (print || this.settings.autoPrint) setTimeout(() => this.printReceipt(), 300); this.bill.cart=[]; this.bill.total=0; this.bill.discountAmount=0; this.bill.amountPaid=0; this.bill.loanCustomerId=''; this.bill.statusMessage='Sale completed — INV-'+sale.id; this.bill.statusType='success'; setTimeout(() => this.bill.statusMessage='',3000); this.loadProducts(); this.loadCustomers(); this.loadDashboardData(); },
+                printReceipt() { const r = this.receiptData; const receiptLogo = this.settings.receiptLogoDataUrl || 'logo/logo.png'; const rows = (r.items||[]).map(item => { let itemTotal = this.getCartItemTotal(item); let qtyDisplay = item.soldType==='open'&&item.smallerUnit ? item.quantity+' '+item.smallerUnit : item.quantity; return `<tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;">${item.name}</td><td style="padding:8px 0;text-align:center;border-bottom:1px solid #e5e7eb;">${qtyDisplay}</td><td style="padding:8px 0;text-align:right;border-bottom:1px solid #e5e7eb;">${item.sellingPrice.toLocaleString()}</td><td style="padding:8px 0;text-align:right;border-bottom:1px solid #e5e7eb;">${itemTotal.toLocaleString()}</td></tr>`; }).join(''); const logoHtml = `<img src="${receiptLogo}" alt="Logo" style="max-width:96px;display:block;margin:0 auto 12px;" onerror="this.style.display='none'">`; const addressHtml = this.settings.receiptShowAddress ? `<div style="font-size:11px;color:#6b7280;">${this.settings.shopAddress||''}</div>` : ''; const dateHtml = this.settings.receiptShowDate ? `<div style="font-size:10px;color:#9ca3af;margin-top:10px;">${r.date||new Date().toLocaleString()}</div>` : ''; const paymentHtml = this.settings.receiptShowPaymentMethod ? `<div style="font-size:11px;margin-top:8px;text-align:center;color:#6b7280;">Payment: ${r.paymentMethod||'Cash'}</div>` : ''; const customerHtml = this.settings.receiptShowCustomer ? `<div style="font-size:11px;margin-top:4px;text-align:center;color:#6b7280;">Customer: ${r.customerName||'Walk-in'}</div>` : ''; const footerHtml = this.settings.receiptShowFooter ? `<div style="text-align:center;font-size:11px;color:#6b7280;margin-top:14px;">${this.settings.receiptFooter||'Thank you!'}</div>` : ''; const layoutClass = this.settings.receiptLayout==='classic' ? 'classic' : this.settings.receiptLayout==='compact' ? 'compact' : 'modern'; const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title><style>body{margin:0;padding:18px;font-family:Inter,system-ui,sans-serif;background:#f3f4f6;color:#111;}.receipt{max-width:360px;margin:0 auto;background:#fff;padding:18px;border-radius:${layoutClass==='compact'?'12px':'18px'};box-shadow:0 24px 60px rgba(15,23,42,.08);}.header{text-align:center;margin-bottom:14px;}.shop-name{font-size:18px;font-weight:800;margin-bottom:4px;}.shop-detail{font-size:11px;color:#6b7280;line-height:1.5;}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;}th{padding-bottom:10px;text-align:left;color:#6b7280;font-size:10px;}.summary{margin-top:14px;font-size:12px;}.summary-row{display:flex;justify-content:space-between;margin-top:6px;}</style></head><body><div class="receipt"><div class="header">${logoHtml}<div class="shop-name">${this.settings.shopName||'Shop Name'}</div>${addressHtml}<div class="shop-detail">${this.settings.shopPhone||''}</div>${dateHtml}</div><table><thead><tr><th style="width:50%;">Item</th><th style="width:15%;text-align:center;">Qty</th><th style="width:17%;text-align:right;">Rate</th><th style="width:18%;text-align:right;">Total</th></tr></thead><tbody>${rows}</tbody></table><div class="summary"><div class="summary-row"><span>Subtotal</span><span>PKR ${r.subtotal?.toLocaleString()||0}</span></div><div class="summary-row" style="font-weight:700;"><span>Total</span><span>PKR ${r.total?.toLocaleString()||0}</span></div><div class="summary-row"><span>Paid</span><span>PKR ${(r.paid||0).toLocaleString()}</span></div>${r.loanAmount?`<div class="summary-row"><span>Credit</span><span>PKR ${r.loanAmount.toLocaleString()}</span></div>`:''}</div>${paymentHtml}${customerHtml}${footerHtml}<div style="font-size:9px;text-align:center;margin-top:8px;color:#6b7280;">Khubaib Enterprises—For custom web,mobile app&software solutions.Call:03184375221</div></div></body></html>`; const win = window.open('','_blank','width=420,height=680'); win.document.write(html); win.document.close(); setTimeout(() => { win.focus(); win.print(); }, 300); },
+                receiptPreviewHtml() { const sample = { shopName: this.settings.shopName||'Shop Name', shopAddress: this.settings.shopAddress||'Shop Address', phone: this.settings.shopPhone||'', date: new Date().toLocaleString(), footer: this.settings.receiptFooter||'Thank you!' }; const addressHtml = this.settings.receiptShowAddress ? `<div style="font-size:11px;color:#6b7280;">${sample.shopAddress}</div>` : ''; const dateHtml = this.settings.receiptShowDate ? `<div style="font-size:10px;color:#9ca3af;margin-top:10px;">${sample.date}</div>` : ''; const paymentHtml = this.settings.receiptShowPaymentMethod ? `<div style="font-size:11px;margin-top:8px;text-align:center;color:#6b7280;">Payment: Cash</div>` : ''; const customerHtml = this.settings.receiptShowCustomer ? `<div style="font-size:11px;margin-top:4px;text-align:center;color:#6b7280;">Customer: Walk-in</div>` : ''; const footerHtml = this.settings.receiptShowFooter ? `<div style="text-align:center;color:#6b7280;font-size:11px;margin-top:14px;">${sample.footer}</div>` : ''; return `<div style="max-width:360px;margin:0 auto;background:#fff;padding:18px;border-radius:12px;font-family:Inter,system-ui,sans-serif;color:#111;"><div style="text-align:center;margin-bottom:14px;"><div style="font-size:16px;font-weight:800;">${sample.shopName}</div>${addressHtml}<div style="font-size:11px;color:#6b7280;">${sample.phone}</div>${dateHtml}</div><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr><th style="text-align:left;color:#6b7280;font-size:10px;padding-bottom:8px;">Item</th><th style="text-align:center;color:#6b7280;font-size:10px;">Qty</th><th style="text-align:right;color:#6b7280;font-size:10px;">Rate</th><th style="text-align:right;color:#6b7280;font-size:10px;">Total</th></tr></thead><tbody><tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-weight:600;">Sample Item</td><td style="padding:8px 0;text-align:center;border-bottom:1px solid #e5e7eb;">2</td><td style="padding:8px 0;text-align:right;border-bottom:1px solid #e5e7eb;">150</td><td style="padding:8px 0;text-align:right;border-bottom:1px solid #e5e7eb;">300</td></tr></tbody></table><div style="margin-top:12px;font-size:12px;"><div style="display:flex;justify-content:space-between;margin-top:6px;"><span>Subtotal</span><span>PKR 300</span></div><div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:700;"><span>Total</span><span>PKR 300</span></div><div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Paid</span><span>PKR 300</span></div></div>${paymentHtml}${customerHtml}${footerHtml}</div>`; },
+                addLedgerEntry(entry) { let l = this.getStore('ledgerEntries',[]); l.unshift(entry); this.setStore('ledgerEntries',l); this.ledgerEntries=l; },
+                loadCustomerLedger() { if (!this.khata.selectedCustomer) { this.khata.ledger=[]; return; } let l = this.getStore('ledgers',{}); this.khata.ledger = l[this.khata.selectedCustomer] || []; },
+                assignCustomerCredit() { let amt = parseFloat(this.khata.creditAmount); if (amt>0 && this.khata.selectedCustomer) { let c = this.customers.find(c => c.id===this.khata.selectedCustomer); if (c) { c.balance = (c.balance||0)+amt; this.setStore('customers',this.customers); let l = this.getStore('ledgers',{}); if (!l[c.id]) l[c.id]=[]; l[c.id].push({ id:Date.now(), date:new Date().toISOString(), type:'Credit Assigned', amount:amt, category:'sale' }); this.setStore('ledgers',l); this.loadCustomerLedger(); this.loadCustomers(); this.khata.creditAmount=0; this.khata.statusMessage='Credit assigned successfully'; setTimeout(()=>this.khata.statusMessage='',2000); } } },
+                recordPayment() { let amt = parseFloat(this.khata.paymentAmount); if (isNaN(amt) || amt <= 0) { this.khata.statusMessage='Enter a valid payment amount greater than 0'; this.khata.statusType='error'; setTimeout(()=>this.khata.statusMessage='',2500); return; } if (!this.khata.selectedCustomer) { this.khata.statusMessage='Select a customer to record payment'; this.khata.statusType='error'; setTimeout(()=>this.khata.statusMessage='',2500); return; } let c = this.customers.find(c => c.id===this.khata.selectedCustomer); if (!c) { this.khata.statusMessage='Customer not found'; this.khata.statusType='error'; setTimeout(()=>this.khata.statusMessage='',2500); return; } c.balance = Math.max(0,(c.balance||0)-amt); this.setStore('customers',this.customers); let l = this.getStore('ledgers',{}); if (!l[c.id]) l[c.id]=[]; l[c.id].push({ id:Date.now(), date:new Date().toISOString(), type:'Payment ('+this.khata.paymentMethodType+')', amount:amt, category:'payment' }); this.setStore('ledgers',l); this.addPaymentHistory('Khata Payment', this.khata.paymentMethodType, amt, 'Customer: '+c.name); this.loadCustomerLedger(); this.loadCustomers(); this.loadPaymentHistory(); this.khata.paymentAmount=0; this.khata.statusMessage='Payment recorded successfully'; setTimeout(()=>this.khata.statusMessage='',2000); },
+                addPurchaseItem() { let prod = this.allProducts.find(p => p.id==this.purchase.selectedProductId); if (!prod) { this.purchase.statusMessage='Select a product'; this.purchase.statusType='error'; setTimeout(()=>this.purchase.statusMessage='',2500); return; } let qty = parseFloat(this.purchase.quantity) || 0; if (qty <= 0) { this.purchase.statusMessage='Quantity must be greater than 0'; this.purchase.statusType='error'; setTimeout(()=>this.purchase.statusMessage='',2500); return; } let price = parseFloat(this.purchase.customPrice); if (isNaN(price) || price < 0) price = prod.purchasePrice || 0; let ex = this.purchase.items.find(i => i.id===prod.id); if (ex) ex.quantity = (ex.quantity||0) + qty; else this.purchase.items.push({ id:prod.id, name:prod.name, unit:prod.unit, purchasePrice:price, quantity:qty }); this.purchase.total = this.purchase.items.reduce((s,i) => s+(i.purchasePrice*i.quantity),0); this.purchase.selectedProductId=''; this.purchase.customPrice=0; this.purchase.quantity=1; },
+                completePurchase() { if (!this.purchase.supplierId || !this.purchase.items.length) return; for (let item of this.purchase.items) { let prod = this.allProducts.find(p => p.id===item.id); if (prod) { prod.stock = (prod.stock||0)+item.quantity; if (item.purchasePrice && item.purchasePrice!==prod.purchasePrice) prod.purchasePrice=item.purchasePrice; } } this.setStore('products',this.allProducts); this.addPaymentHistory('Purchase','cash',this.purchase.total,'Supplier: '+this.purchase.supplierId); this.purchase.items=[]; this.purchase.total=0; this.purchase.supplierId=''; this.loadProducts(); this.loadDashboardData(); this.purchase.statusMessage='Stock updated successfully'; setTimeout(()=>this.purchase.statusMessage='',2500); },
+                loadReports() { let start = this.reports.startDate ? new Date(this.reports.startDate) : null; let end = this.reports.endDate ? new Date(this.reports.endDate+'T23:59:59') : null; let sales = this.getStore('sales',[]); let filtered = sales.filter(s => { let d=new Date(s.date); if(start&&d<start) return false; if(end&&d>end) return false; return true; }); let prodMap={}, catMap={}, totalSales=0, totalProfit=0; for (let s of filtered) { totalSales+=s.total||0; totalProfit+=s.profit||0; for (let i of s.items||[]) { let prod = this.allProducts.find(p=>p.id==i.id)||{}; prodMap[i.id] = prodMap[i.id]||{id:i.id,name:i.name,quantity:0,total:0}; prodMap[i.id].quantity+=i.quantity; prodMap[i.id].total+=this.getCartItemTotal(i); let cat = prod.category||'General'; catMap[cat] = catMap[cat]||{category:cat,quantity:0,total:0}; catMap[cat].quantity+=i.quantity; catMap[cat].total+=this.getCartItemTotal(i); } } this.reports.productSummary=Object.values(prodMap).sort((a,b)=>b.total-a.total).slice(0,10); this.reports.categorySummary=Object.values(catMap).sort((a,b)=>b.total-a.total); this.reports.totalSales=totalSales; this.reports.totalProfit=totalProfit; },
+                loadAnalytics() { let sales=this.getStore('sales',[]), now=new Date(), start, end; if (this.analyticsPeriod==='today') { start=new Date(now.getFullYear(),now.getMonth(),now.getDate()); end=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59); } else if (this.analyticsPeriod==='week') { let day=now.getDay(); start=new Date(now); start.setDate(now.getDate()-day); start.setHours(0,0,0,0); end=new Date(now); end.setHours(23,59,59,999); } else { start=new Date(now.getFullYear(),now.getMonth(),1); end=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59); } let filtered=sales.filter(s=>{let d=new Date(s.date);return d>=start&&d<=end;}); this.analytics.totalSales=filtered.reduce((a,b)=>a+(b.total||0),0); this.analytics.profit=filtered.reduce((a,b)=>a+(b.profit||0),0); let prodTot={},catTot={},compTot={}; for (let s of filtered) for (let i of s.items||[]) { let prod=this.allProducts.find(p=>String(p.id)===String(i.id)); let name=prod?.name||i.name||'Unknown', cat=prod?.category||'General', comp=prod?.companyName||'Unknown', amt=this.getCartItemTotal(i); prodTot[name]=(prodTot[name]||0)+amt; catTot[cat]=(catTot[cat]||0)+amt; compTot[comp]=(compTot[comp]||0)+amt; } let top=Object.entries(prodTot).sort((a,b)=>b[1]-a[1]).slice(0,6); let html='<ol style="padding-left:18px;line-height:2;">'; for (let [n,v] of top) html+=`<li style="font-size:.82rem;"><span style="font-weight:600;">${n}</span> <span style="color:var(--accent);font-family:JetBrains Mono,monospace;">PKR ${v.toLocaleString()}</span></li>`; html+='</ol>'; this.analytics.topProductsHtml=html; let groupData=this.analytics.chartType==='category'?catTot:this.analytics.chartType==='company'?compTot:this.analytics.chartType==='product'?prodTot:null; if (groupData) { let topG=Object.entries(groupData).sort((a,b)=>b[1]-a[1]).slice(0,6); let gh='<ol style="padding-left:18px;line-height:2;">'; for (let [n,v] of topG) gh+=`<li style="font-size:.82rem;"><span style="font-weight:600;">${n}</span> <span style="color:var(--blue);font-family:JetBrains Mono,monospace;">PKR ${v.toLocaleString()}</span></li>`; gh+='</ol>'; this.analytics.topGroupsHtml=gh; } else this.analytics.topGroupsHtml='<div style="color:var(--muted);font-size:.82rem;">Select a chart type to see breakdown</div>'; this.renderComparisonChart(filtered); },
+                renderComparisonChart(salesData) { let ctx=document.getElementById('comparisonChart')?.getContext('2d'); if (!ctx) return; let labels=[],values=[]; if (this.analytics.chartType==='time') { if (this.analyticsPeriod==='today') { let sorted=salesData.sort((a,b)=>new Date(a.date)-new Date(b.date)); labels=sorted.map(s=>new Date(s.date).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit'})); values=sorted.map(s=>s.total||0); if (labels.length===0) { labels=['No sales yet']; values=[0]; } } else if (this.analyticsPeriod==='week') { let d=Array(7).fill(0), days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; for (let s of salesData) { let dd=new Date(s.date).getDay(); d[dd]+=s.total||0; } labels=days; values=d; } else { let dim=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate(); let d=Array(dim).fill(0); for (let s of salesData) { let dd=new Date(s.date).getDate(); if(dd>=1) d[dd-1]+=s.total||0; } labels=Array.from({length:dim},(_,i)=>i+1); values=d; } } else { let totals={}; for (let s of salesData) for (let i of s.items||[]) { let prod=this.allProducts.find(p=>String(p.id)===String(i.id)); let name=this.analytics.chartType==='category'?(prod?.category||'General'):this.analytics.chartType==='company'?(prod?.companyName||'Unknown'):(prod?.name||i.name||'Unknown'); let amt=this.getCartItemTotal(i); totals[name]=(totals[name]||0)+amt; } let sorted=Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,8); labels=sorted.map(([n])=>n); values=sorted.map(([,v])=>v); } if (window._posChart) window._posChart.destroy(); Chart.defaults.color='#7a849e'; window._posChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Sales (PKR)',data:values,backgroundColor:'rgba(16,216,122,0.7)',borderRadius:6,borderColor:'rgba(16,216,122,1)',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#181c27',borderColor:'#262d42',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#7a849e'}},scales:{x:{grid:{color:'#262d42'},ticks:{color:'#7a849e',maxRotation:45,minRotation:0}},y:{grid:{color:'#262d42'},ticks:{color:'#7a849e'}}}}); },
+                filteredProducts() { let q=this.productSearch.trim().toLowerCase(); if (!q) return this.allProducts.slice(0,100); return this.allProducts.filter(p=>p.name.toLowerCase().includes(q)||(p.barcode||'').includes(q)); },
+                openProductModal(p=null) { this.productModal.open=true; if (p) { this.productModal.editing=true; this.productModal.currentId=p.id; this.productModal.form={ ...p, presentStock: p.stock||0, newStock: 0, newPurchasePrice: p.purchasePrice||0, newSellingPrice: p.sellingPrice||0 }; } else { this.productModal.editing=false; this.productModal.currentId=null; this.productModal.form={ name:'', barcode:Math.floor(Math.random()*900000+100000).toString(), unit:'piece', purchasePrice:0, sellingPrice:0, presentStock:0, newStock:0, newPurchasePrice:0, newSellingPrice:0, lowStockThreshold:10, soldType:'pack', smallerUnit:'', conversionFactor:1, image:'', companyName:'', category:'', expiryDate:'' }; } },
+                editProduct(p) { this.openProductModal(p); },
+                saveProduct() { let form=this.productModal.form; if (!form.name) { alert('Product name is required'); return; } if (form.barcode && !/^[0-9A-Za-z\-]{3,}$/i.test(form.barcode)) { if (!confirm('Barcode contains unusual characters. Proceed?')) return; } let purchasePrice = parseFloat(form.purchasePrice); let sellingPrice = parseFloat(form.sellingPrice); if (isNaN(purchasePrice) || purchasePrice < 0) { alert('Enter a valid purchase price (>= 0)'); return; } if (isNaN(sellingPrice) || sellingPrice < 0) { alert('Enter a valid selling price (>= 0)'); return; } let prods=[...this.allProducts]; let presentQty=parseFloat(form.presentStock)||0; let newQty=parseFloat(form.newStock)||0; let totalStock=presentQty+newQty; let finalPurchasePrice=purchasePrice; let finalSellingPrice=sellingPrice; if (newQty>0) { if (parseFloat(form.newPurchasePrice)>0) finalPurchasePrice=parseFloat(form.newPurchasePrice); if (parseFloat(form.newSellingPrice)>0) finalSellingPrice=parseFloat(form.newSellingPrice); } let productToSave={...form, stock:totalStock, purchasePrice:finalPurchasePrice, sellingPrice:finalSellingPrice}; delete productToSave.presentStock; delete productToSave.newStock; delete productToSave.newPurchasePrice; delete productToSave.newSellingPrice; if (this.productModal.editing) { let idx=prods.findIndex(p=>p.id===this.productModal.currentId); if (idx!==-1) prods[idx]={...prods[idx],...productToSave}; } else { prods.push({id:Date.now(),...productToSave}); } this.setStore('products',prods); this.allProducts=prods; this.productModal.open=false; this.loadDashboardLowStock(); this.loadDashboardData(); },
+                promptDelete(id) { this.deleteConfirm.open=true; this.deleteConfirm.productId=id; },
+                confirmDelete() { let id=this.deleteConfirm.productId, prods=this.getStore('products',[]).filter(p=>p.id!=id); this.setStore('products',prods); this.allProducts=prods; this.deleteConfirm.open=false; this.loadDashboardLowStock(); this.loadDashboardData(); },
+                openCustomerModal(ctx) { this.customerModal.form={}; this.customerModal.open=true; this.customerModal.returnContext=ctx; },
+                saveCustomer() { if (!this.customerModal.form.name) { alert('Customer name is required'); return; } const phone = this.customerModal.form.phone || ''; if (phone && !this.validatePakistanPhone(phone)) { alert('Invalid Pakistan phone number. Expected format: 03XX-XXXXXXX or +92XXXXXXXXXX'); return; } const formattedPhone = phone ? this.formatPakistanPhone(phone) : ''; let nc={id:Date.now(),name:this.customerModal.form.name.trim(),phone:formattedPhone,address:(this.customerModal.form.address||'').trim(),balance:0}; this.customers.push(nc); this.setStore('customers',this.customers); this.customerModal.open=false; this.loadCustomers(); if (this.customerModal.returnContext==='khata') { this.khata.selectedCustomer=nc.id; this.loadCustomerLedger(); } if (this.customerModal.returnContext==='bill') this.bill.loanCustomerId=nc.id; this.customerModal.returnContext=null; },
+                openSupplierModal() { this.supplierModal.form={}; this.supplierModal.open=true; },
+                saveSupplier() { if (!this.supplierModal.form.name) { alert('Supplier name is required'); return; } const phone = this.supplierModal.form.phone || ''; if (phone && !this.validatePakistanPhone(phone)) { alert('Invalid Pakistan phone number. Expected format: 03XX-XXXXXXX or +92XXXXXXXXXX'); return; } const formattedPhone = phone ? this.formatPakistanPhone(phone) : ''; this.suppliers.push({id:Date.now(),name:this.supplierModal.form.name.trim(),phone:formattedPhone,address:(this.supplierModal.form.address||'').trim()}); this.setStore('suppliers',this.suppliers); this.supplierModal.open=false; this.loadSuppliers(); },
+                saveExpense() { let exp={...this.expenseForm,id:Date.now(),amount:parseFloat(this.expenseForm.amount)||0}; if (exp.category&&exp.amount) { this.expenses.unshift(exp); this.setStore('expenses',this.expenses); this.expenseForm={date:new Date().toISOString().slice(0,10),category:'Shop',amount:0,note:''}; this.loadDashboardData(); } },
+                saveAsset() { let asset={...this.assetForm,id:Date.now(),cost:parseFloat(this.assetForm.cost)||0,currentValue:parseFloat(this.assetForm.currentValue)||0}; if (asset.name&&asset.cost) { this.assets.unshift(asset); this.setStore('assets',this.assets); this.assetForm={name:'',purchaseDate:new Date().toISOString().slice(0,10),cost:0,currentValue:0,category:'',notes:''}; } },
+                loadReturnSale() { let sale=this.sales.find(s=>s.id==this.returns.selectedSaleId); if (sale) { let customer=this.customers.find(c=>c.id==sale.customerId)||{}; this.returns.saleDetails={...sale,customerName:customer.name||'Walk-in',items:sale.items.map(i=>({...i,returnQty:0}))}; this.returns.refundAmount=0; } else this.returns.saleDetails={items:[]}; },
+                processReturn() { let refund=0; for (let item of this.returns.saleDetails.items) { let qty=parseFloat(item.returnQty)||0; if (qty>0) { refund+=this.getCartItemTotal({...item,quantity:qty}); let prod=this.allProducts.find(p=>p.id==item.id); if(prod) prod.stock+=qty; } } this.setStore('products',this.allProducts); this.returns.refundAmount=refund; this.returns.statusMessage='Return processed — Refund: PKR '+refund.toLocaleString(); this.loadDashboardData(); setTimeout(()=>this.returns.statusMessage='',3000); },
+                recordJazzcashTransaction() { let amt=parseFloat(this.jazzcash.amount); if (isNaN(amt)||amt<=0) return; let type=this.jazzcash.transactionType; if (type==='initial') { if (this.jazzcash.initialSet) { this.jazzcash.statusMessage='Initial balance already set.'; this.jazzcash.statusType='error'; setTimeout(()=>this.jazzcash.statusMessage='',2500); return; } this.jazzcash.balance=amt; this.jazzcash.initialSet=true; let tx={id:Date.now(),date:new Date().toISOString(),type:'initial',amount:amt,note:this.jazzcash.note||'Initial Balance Set'}; this.jazzcash.transactions.unshift(tx); this.saveJazzcashData(); this.addPaymentHistory('JazzCash','jazzcash',amt,'Initial Balance Set'); this.jazzcash.amount=0; this.jazzcash.note=''; this.jazzcash.statusMessage='Initial balance set successfully'; this.jazzcash.statusType='success'; setTimeout(()=>this.jazzcash.statusMessage='',2000); this.loadDashboardData(); this.loadPaymentHistory(); return; } if (type==='received') this.jazzcash.balance+=amt; else if (type==='sent') { if (amt>this.jazzcash.balance) { this.jazzcash.statusMessage='Insufficient balance'; this.jazzcash.statusType='error'; setTimeout(()=>this.jazzcash.statusMessage='',2000); return; } this.jazzcash.balance-=amt; } let tx={id:Date.now(),date:new Date().toISOString(),type,amount:amt,note:this.jazzcash.note||''}; this.jazzcash.transactions.unshift(tx); this.saveJazzcashData(); this.addPaymentHistory('JazzCash','jazzcash',amt,type); this.jazzcash.amount=0; this.jazzcash.note=''; this.jazzcash.statusMessage='Transaction added successfully'; this.jazzcash.statusType='success'; setTimeout(()=>this.jazzcash.statusMessage='',2000); this.loadDashboardData(); this.loadPaymentHistory(); },
+                saveSettings() { if (this.settings.shopPhone && !this.validatePakistanPhone(this.settings.shopPhone)) { alert('Invalid shop phone number. Use 03XX-XXXXXXX or +92XXXXXXXXXX'); return; } if (this.settings.shopPhone) this.settings.shopPhone = this.formatPakistanPhone(this.settings.shopPhone); this.setStore('settings',this.settings); document.body.style.zoom=this.settings.pageZoom/100; this.settingsStatusMessage='Settings saved successfully'; setTimeout(()=>this.settingsStatusMessage='',2500); },
+                testPrinter() { this.receiptData={id:'TEST',date:new Date().toLocaleString(),items:[{name:'Test Item',quantity:2,sellingPrice:150,soldType:'pack'}],subtotal:300,total:300,paid:300,loanAmount:0,customerName:'Test Customer',paymentMethod:'Cash'}; setTimeout(()=>this.printReceipt(),300); }
+            };
+        }
+    </script>
+</body>
+</html>
