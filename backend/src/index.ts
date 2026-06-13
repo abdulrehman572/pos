@@ -1,8 +1,8 @@
 import { Elysia } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import { EventEmitter } from "events";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+// Ensure database migrations run on startup
+import "./db/migrate";
 
 // Import all route modules
 import { productsRoutes } from "./routes/products";
@@ -16,9 +16,6 @@ import { settingsRoutes } from "./routes/settings";
 import { backupRoutes } from "./routes/backup";
 import { reportsRoutes } from "./routes/reports";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const frontendPath = join(__dirname, "..", "..", "frontend");
-
 // Event bus for SSE
 export const eventBus = new EventEmitter();
 
@@ -31,7 +28,7 @@ const app = new Elysia()
     }
   })
   // Serve static frontend files
-  .use(staticPlugin({ assets: frontendPath, prefix: "" }))
+  .use(staticPlugin({ assets: "./frontend", prefix: "" }))
   // Mount all API routes
   .use(productsRoutes)
   .use(salesRoutes)

@@ -1,0 +1,30 @@
+{
+    "version": "1.0.0",
+    "name": "khubaib-pos",
+    "description": "Khubaib Interprises POS - 7-Day Demo",
+    "scripts": {
+        "start": "electron .",
+        "build": "electron-builder --win portable"
+    },
+    "devDependencies": {
+        "electron": "^28.3.3",
+        "electron-builder": "^24.0.0"
+    },
+    "build": {
+        "appId": "com.khubaib.pos",
+        "productName": "Khubaib POS",
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "main.js",
+            "preload.js",
+            "index.html"
+        ],
+        "win": {
+            "target": "portable",
+            "signAndEditExecutable": false
+        }
+    },
+    "main": "main.js"
+}

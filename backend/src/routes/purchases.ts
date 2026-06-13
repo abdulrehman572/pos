@@ -4,7 +4,7 @@ import { purchases, purchaseItems, products, suppliers } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { eventBus } from "../index";
 
-export const purchasesRoutes = new Elysia({ prefix: "/purchases" })
+export const purchasesRoutes = new Elysia({ prefix: "/api/purchases" })
   .get("/", () => db.select().from(purchases))
 
   .get("/:id", ({ params: { id } }) =>
@@ -27,10 +27,14 @@ export const purchasesRoutes = new Elysia({ prefix: "/purchases" })
         total += item.purchasePrice * item.quantity;
       }
 
-      // Insert purchase record
+      // Determine next invoice number (start from 1 on fresh installs)
+      const maxRow = await tx.select({ maxInvoice: sql<number>`COALESCE(MAX(${purchases.invoiceNo}), 0)` }).from(purchases).get();
+      const nextInvoice = (maxRow?.maxInvoice || 0) + 1;
+
+      // Insert purchase record (include generated invoice number)
       const [purchase] = await tx
         .insert(purchases)
-        .values({ supplierId, total, note })
+        .values({ supplierId, total, note, invoiceNo: nextInvoice })
         .returning();
 
       // Insert purchase items and update stock & purchase price

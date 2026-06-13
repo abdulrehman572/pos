@@ -7,7 +7,7 @@ import { join } from "path";
 const BACKUP_DIR = "./backups";
 if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR);
 
-export const backupRoutes = new Elysia({ prefix: "/backup" })
+export const backupRoutes = new Elysia({ prefix: "/api/backup" })
   .post("/create", () => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const backupFile = join(BACKUP_DIR, `kiryana_${timestamp}.db`);

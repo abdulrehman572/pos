@@ -11,10 +11,11 @@ function app() {
         allProducts: [], suppliers: [], customers: [],
         productsStatusMessage: '', productsStatusType: '',
         monthlyProfit: 0, stockSummary: { totalStockValue: 0, totalItems: 0 }, reportDateFrom: new Date().toISOString().slice(0,10), reportDateTo: new Date().toISOString().slice(0,10), dateRangeSales: { totalSales: 0, profit: 0 },
-        settings: { shopName: 'Kiryana Store', gst: '', lowStockThreshold: 10, barcodeScannerEnabled: false, printerEnabled: false },
+        settings: { shopName: 'Kiryana Store', gst: '', lowStockThreshold: 10, barcodeScannerEnabled: false, printerEnabled: false,
+                backup: { enabled: false, frequency: 'daily', custom: '', location: '' } },
         settingsStatusMessage: '', settingsStatusType: '',
-        productModal: { open: false, editing: false, form: {}, currentId: null },
-        customerModal: { open: false, form: {} }, supplierModal: { open: false, form: {} },
+        productModal: { open: false, editing: false, form: {}, currentId: null, statusMessage: '', statusType: '' },
+        customerModal: { open: false, form: {}, statusMessage: '', statusType: '', returnContext: null }, supplierModal: { open: false, form: {}, statusMessage: '', statusType: '' },
         eventSource: null,
 
         async init() {
@@ -58,6 +59,9 @@ function app() {
             else if (context === 'khata') { this.khata.statusMessage = message; this.khata.statusType = type; setTimeout(() => { this.khata.statusMessage = ''; }, 3000); }
             else if (context === 'products') { this.productsStatusMessage = message; this.productsStatusType = type; setTimeout(() => { this.productsStatusMessage = ''; }, 3000); }
             else if (context === 'settings') { this.settingsStatusMessage = message; this.settingsStatusType = type; setTimeout(() => { this.settingsStatusMessage = ''; }, 3000); }
+            else if (context === 'productModal') { this.productModal.statusMessage = message; this.productModal.statusType = type; setTimeout(() => { this.productModal.statusMessage = ''; }, 3000); }
+            else if (context === 'customerModal') { this.customerModal.statusMessage = message; this.customerModal.statusType = type; setTimeout(() => { this.customerModal.statusMessage = ''; }, 3000); }
+            else if (context === 'supplierModal') { this.supplierModal.statusMessage = message; this.supplierModal.statusType = type; setTimeout(() => { this.supplierModal.statusMessage = ''; }, 3000); }
         },
 
         async fetchJSON(url, options = {}) {
@@ -88,7 +92,14 @@ function app() {
             let thresh = await fetch('/api/settings/lowStockThreshold').then(r=>parseInt(r.text())).catch(()=>10);
             let scanner = await fetch('/api/settings/barcodeScannerEnabled').then(r=>r.text() === 'true').catch(()=>false);
             let printer = await fetch('/api/settings/printerEnabled').then(r=>r.text() === 'true').catch(()=>false);
-            this.settings = { shopName: shop, gst, lowStockThreshold: thresh, barcodeScannerEnabled: scanner, printerEnabled: printer };
+            // load backup settings
+            let backupEnabled = await fetch('/api/settings/backupEnabled').then(r=>r.text()).catch(()=> 'false');
+            let backupFrequency = await fetch('/api/settings/backupFrequency').then(r=>r.text()).catch(()=> 'daily');
+            let backupLocation = await fetch('/api/settings/backupLocation').then(r=>r.text()).catch(()=> '');
+            let backupCustom = await fetch('/api/settings/backupCustom').then(r=>r.text()).catch(()=> '');
+
+            this.settings = { shopName: shop, gst, lowStockThreshold: thresh, barcodeScannerEnabled: scanner, printerEnabled: printer,
+                              backup: { enabled: backupEnabled === 'true', frequency: backupFrequency || 'daily', custom: backupCustom || '', location: backupLocation || '' } };
         },
         startSSE() {
             this.eventSource = new EventSource('/api/events');
@@ -97,7 +108,22 @@ function app() {
         },
         searchProducts() { let q = this.bill.search.trim().toLowerCase(); if (!q) { this.bill.searchResults = []; return; } this.bill.searchResults = this.allProducts.filter(p => p.name.toLowerCase().includes(q) || p.barcode.includes(q)).slice(0,20); },
         barcodeScanned(code) { let product = this.allProducts.find(p => p.barcode === code); if (product) this.addToCart(product); else this.showStatus('bill', 'Product not found', 'error'); this.bill.search = ''; },
-        addToCart(p) { if (p.stock <= 0) return this.showStatus('bill', 'Out of stock', 'error'); let ex = this.bill.cart.find(i=>i.id===p.id); if(ex) ex.quantity++; else this.bill.cart.push({...p, quantity:1}); this.updateTotal(); },
+        async addToCart(p) {
+            // Check expiry if present
+            if (p.expiryDate) {
+                const exp = new Date(p.expiryDate);
+                const now = new Date();
+                if (exp < now) {
+                    this.showStatus('bill', 'Item appears expired and cannot be added to cart. Remove or restock it first.', 'error');
+                    return;
+                }
+            }
+            if (p.stock <= 0) return this.showStatus('bill', 'Out of stock', 'error');
+            let ex = this.bill.cart.find(i=>i.id===p.id);
+            if(ex) ex.quantity++;
+            else this.bill.cart.push({...p, quantity:1});
+            this.updateTotal();
+        },
         updateQuantity(idx, delta) { let q = this.bill.cart[idx].quantity + delta; if (q <= 0) this.bill.cart.splice(idx,1); else this.bill.cart[idx].quantity = q; this.updateTotal(); },
         removeFromCart(idx) { this.bill.cart.splice(idx,1); this.updateTotal(); },
         updateTotal() { this.bill.total = this.bill.cart.reduce((s,i)=>s+(i.sellingPrice*i.quantity),0); },
@@ -108,13 +134,24 @@ function app() {
             if (this.bill.paymentMethod === 'loan') amountPaid = 0, loanAmount = this.bill.total;
             else if (amountPaid < this.bill.total) loanAmount = this.bill.total - amountPaid;
             if (loanAmount > 0 && !this.bill.loanCustomerId) return this.showStatus('bill', 'Select customer for loan', 'error');
-            let payload = { items: this.bill.cart.map(i=>({productId:i.id, quantity:i.quantity, sellingPrice:i.sellingPrice})), paymentMethod: this.bill.paymentMethod, amountPaid, loanAmount, customerId: loanAmount ? this.bill.loanCustomerId : null };
+            // Allow per-item unit price override (unitPrice stored as `unitPrice` on cart item)
+            let payload = { items: this.bill.cart.map(i=>({productId:i.id, quantity:i.quantity, sellingPrice:i.unitPrice ?? i.sellingPrice})), paymentMethod: this.bill.paymentMethod, amountPaid, loanAmount, customerId: loanAmount ? this.bill.loanCustomerId : null };
             let res = await fetch('/api/sales', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-            if (!res.ok) return this.showStatus('bill', 'Sale failed', 'error');
+            if (!res.ok) {
+                const text = await res.text();
+                return this.showStatus('bill', `Sale failed: ${text}`, 'error');
+            }
             let result = await res.json();
             this.showStatus('bill', `✅ Sale #${result.id} completed!`, 'success');
             this.bill.cart = []; this.bill.total = 0; this.bill.amountPaid = 0; this.bill.search = ''; this.bill.loanCustomerId = '';
             await this.loadDashboard(); await this.loadAllProducts();
+        },
+
+        // Price override is shown inline because browser dialogs are disabled
+        async setPriceForItem(idx) {
+            const item = this.bill.cart[idx];
+            if (!item) return;
+            this.showStatus('bill', 'Price override cannot be entered via browser prompt in this mode. Use the cart item editor instead.', 'error');
         },
         addPurchaseItem() {
             let prod = this.allProducts.find(p=>p.id == this.purchase.selectedProductId);
@@ -140,14 +177,32 @@ function app() {
         openSupplierModal() { this.supplierModal.form = {}; this.supplierModal.open = true; },
         async saveSupplier() {
             let res = await fetch('/api/suppliers', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.supplierModal.form) });
-            if (!res.ok) return this.showStatus('purchase', 'Failed to add supplier', 'error');
+            if (!res.ok) {
+                const txt = await res.text();
+                try { const json = JSON.parse(txt); if (res.status === 409 && json.existing) {
+                    this.supplierModal.form = json.existing;
+                    this.supplierModal.open = true;
+                    return this.showStatus('supplierModal', 'Supplier already exists. Loaded existing record for editing.', 'error');
+                } }
+                catch(e){}
+                return this.showStatus('purchase', `Failed to add supplier: ${txt}`, 'error');
+            }
             this.showStatus('purchase', 'Supplier added', 'success');
             this.supplierModal.open = false; await this.loadSuppliers();
         },
         openCustomerModal() { this.customerModal.form = {}; this.customerModal.open = true; },
         async saveCustomer() {
             let res = await fetch('/api/customers', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.customerModal.form) });
-            if (!res.ok) return this.showStatus('khata', 'Failed to add customer', 'error');
+            if (!res.ok) {
+                const txt = await res.text();
+                try { const json = JSON.parse(txt); if (res.status === 409 && json.existing) {
+                    this.customerModal.form = json.existing;
+                    this.customerModal.open = true;
+                    return this.showStatus('customerModal', 'Customer already exists. Loaded existing record for editing.', 'error');
+                } }
+                catch(e){}
+                return this.showStatus('khata', `Failed to add customer: ${txt}`, 'error');
+            }
             this.showStatus('khata', 'Customer added', 'success');
             this.customerModal.open = false; await this.loadCustomers();
         },
@@ -166,18 +221,48 @@ function app() {
             let url = this.productModal.editing ? `/api/products/${this.productModal.currentId}` : '/api/products';
             let method = this.productModal.editing ? 'PUT' : 'POST';
             let res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.productModal.form) });
-            if (!res.ok) return this.showStatus('products', 'Save failed', 'error');
+            if (!res.ok) {
+                const txt = await res.text();
+                try { const json = JSON.parse(txt); if (res.status === 409 && json.existing) {
+                    this.productModal.form = json.existing;
+                    this.productModal.editing = true;
+                    this.productModal.currentId = json.existing.id;
+                    this.productModal.open = true;
+                    return this.showStatus('productModal', 'Product already exists. Loaded existing record for editing.', 'error');
+                } }
+                catch(e){}
+                return this.showStatus('products', `Save failed: ${txt}`, 'error');
+            }
             this.showStatus('products', 'Product saved', 'success');
             this.productModal.open = false; await this.loadAllProducts();
         },
-        async deleteProduct(id) { if (!confirm('Delete product?')) return; await fetch(`/api/products/${id}`, { method:'DELETE' }); await this.loadAllProducts(); this.showStatus('products', 'Deleted', 'success'); },
+        async deleteProduct(id) { await fetch(`/api/products/${id}`, { method:'DELETE' }); await this.loadAllProducts(); this.showStatus('products', 'Deleted', 'success'); },
         async saveSettings() {
             await fetch('/api/settings/shopName', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.shopName}) });
             await fetch('/api/settings/gst', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.gst}) });
             await fetch('/api/settings/lowStockThreshold', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.lowStockThreshold.toString()}) });
             await fetch('/api/settings/barcodeScannerEnabled', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.barcodeScannerEnabled.toString()}) });
             await fetch('/api/settings/printerEnabled', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.printerEnabled.toString()}) });
+            // Backup settings
+            try {
+                await fetch('/api/settings/backupEnabled', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.backup.enabled.toString()}) });
+                await fetch('/api/settings/backupFrequency', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.backup.frequency}) });
+                await fetch('/api/settings/backupLocation', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.backup.location || ''}) });
+                await fetch('/api/settings/backupCustom', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value:this.settings.backup.custom || ''}) });
+            } catch(e) { /* non-blocking */ }
             this.showStatus('settings', 'Settings saved', 'success');
+        },
+
+        chooseBackupLocation(e) {
+            const files = e.target.files;
+            if (!files || !files.length) return;
+            // webkitRelativePath gives path relative to the chosen folder; use that to infer folder name
+            const first = files[0];
+            let folder = '';
+            if (first.webkitRelativePath) folder = first.webkitRelativePath.split('/')[0];
+            else folder = first.name;
+            this.settings.backup.location = folder;
+            this.saveSettings();
         },
         printReport() { window.print(); }
     };

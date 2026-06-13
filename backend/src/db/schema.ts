@@ -9,6 +9,8 @@ export const products = sqliteTable("products", {
   barcode: text("barcode").unique().notNull(),
   purchasePrice: real("purchase_price").notNull(),
   sellingPrice: real("selling_price").notNull(),
+  // Optional expiry date (timestamp). If present, used to warn about expired items.
+  expiryDate: integer("expiry_date", { mode: "timestamp" }),
   stock: integer("stock").notNull().default(0),
   lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
   supplierId: integer("supplier_id").references(() => suppliers.id),
@@ -69,6 +71,8 @@ export const saleItems = sqliteTable("sale_items", {
 export const purchases = sqliteTable("purchases", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
+  // Auto-incrementing invoice number (managed by application logic)
+  invoiceNo: integer("invoice_no"),
   total: real("total").notNull(),
   paymentMethod: text("payment_method", { enum: ["cash", "card", "upi"] }).notNull(),
   amountPaid: real("amount_paid").notNull(),

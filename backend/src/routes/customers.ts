@@ -28,6 +28,14 @@ export const customersRoutes = new Elysia({ prefix: "/api/customers" })
 
   // POST create customer
   .post("/", async ({ body, set }) => {
+    // Prevent duplicate by phone if provided
+    if (body.phone) {
+      const existing = await db.select().from(customers).where(sql`${customers.phone} = ${body.phone}`).get();
+      if (existing) {
+        set.status = 409;
+        return { error: 'Customer with this phone already exists', existing };
+      }
+    }
     const [newCustomer] = await db.insert(customers).values(body).returning().all();
     set.status = 201;
     return newCustomer;

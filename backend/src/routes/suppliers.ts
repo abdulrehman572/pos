@@ -1,14 +1,20 @@
 import { Elysia, t } from "elysia";
 import { db } from "../db";
 import { suppliers } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
-export const suppliersRoutes = new Elysia({ prefix: "/suppliers" })
+export const suppliersRoutes = new Elysia({ prefix: "/api/suppliers" })
   .get("/", () => db.select().from(suppliers))
   .get("/:id", ({ params: { id } }) => 
     db.select().from(suppliers).where(eq(suppliers.id, Number(id))).get()
   )
-  .post("/", ({ body }) => {
+  .post("/", async ({ body, set }) => {
+    // avoid duplicate supplier names
+    const existing = await db.select().from(suppliers).where(sql`${suppliers.name} = ${body.name}`).get();
+    if (existing) {
+      set.status = 409;
+      return { error: 'Supplier already exists', existing };
+    }
     return db.insert(suppliers).values(body).returning().get();
   }, {
     body: t.Object({

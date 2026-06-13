@@ -4,7 +4,7 @@ import { sales, saleItems, products, customers } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { eventBus } from "../index";
 
-export const salesRoutes = new Elysia({ prefix: "/sales" })
+export const salesRoutes = new Elysia({ prefix: "/api/sales" })
   .get("/", () => db.select().from(sales))
 
   .get("/:id", ({ params: { id } }) =>
@@ -26,7 +26,9 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
           .get();
         if (!product) throw new Error(`Product ${item.productId} not found`);
         if (product.stock < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
-        subtotal += product.sellingPrice * item.quantity;
+        // Allow client to override unit price (useful for weight-based open items)
+        const unitPrice = item.sellingPrice ?? product.sellingPrice;
+        subtotal += unitPrice * item.quantity;
       }
       const total = subtotal - discount;
 
@@ -50,12 +52,13 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
           .from(products)
           .where(eq(products.id, item.productId))
           .get();
+        const unitPrice = item.sellingPrice ?? product.sellingPrice;
         await tx.insert(saleItems).values({
           saleId: sale.id,
           productId: item.productId,
           quantity: item.quantity,
-          unitPrice: product.sellingPrice,
-          total: product.sellingPrice * item.quantity,
+          unitPrice,
+          total: unitPrice * item.quantity,
         });
         // Reduce stock
         const newStock = product.stock - item.quantity;

@@ -3,7 +3,7 @@ import { db } from "../db";
 import { customerPayments, supplierPayments, customers, suppliers } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 
-export const paymentsRoutes = new Elysia({ prefix: "/payments" })
+export const paymentsRoutes = new Elysia({ prefix: "/api/payments" })
   .post("/customer", async ({ body }) => {
     const { customerId, amount, date, note } = body;
     const payment = await db.insert(customerPayments).values({

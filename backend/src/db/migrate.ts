@@ -13,6 +13,7 @@ async function migrate() {
       barcode TEXT UNIQUE NOT NULL,
       purchase_price REAL NOT NULL,
       selling_price REAL NOT NULL,
+      expiry_date INTEGER,
       stock INTEGER NOT NULL DEFAULT 0,
       low_stock_threshold INTEGER NOT NULL DEFAULT 10,
       supplier_id INTEGER REFERENCES suppliers(id),
@@ -64,6 +65,7 @@ async function migrate() {
     CREATE TABLE IF NOT EXISTS purchases (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       supplier_id INTEGER NOT NULL REFERENCES suppliers(id),
+      invoice_no INTEGER UNIQUE,
       total REAL NOT NULL,
       payment_method TEXT CHECK(payment_method IN ('cash', 'card', 'upi')) NOT NULL,
       amount_paid REAL NOT NULL,
@@ -134,8 +136,29 @@ async function migrate() {
 
   // Create FTS5 virtual table (external content mode)
   sqlite.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS product_fts USING fts5(name, barcode, content='products', content_rowid='id');
+    CREATE VIRTUAL TABLE IF NOT EXISTS products_fts USING fts5(name, barcode, content='products', content_rowid='id');
   `);
+
+  // For existing databases: add columns if missing (safe upgrade path)
+  try {
+    const prodCols = sqlite.prepare("PRAGMA table_info('products')").all();
+    const hasExpiry = prodCols.some(c => c.name === 'expiry_date');
+    if (!hasExpiry) {
+      sqlite.exec(`ALTER TABLE products ADD COLUMN expiry_date INTEGER;`);
+      console.log('🔧 Added column products.expiry_date');
+    }
+  } catch (e) { console.warn('Could not ensure products.expiry_date:', e); }
+
+  try {
+    const purCols = sqlite.prepare("PRAGMA table_info('purchases')").all();
+    const hasInvoice = purCols.some(c => c.name === 'invoice_no');
+    if (!hasInvoice) {
+      sqlite.exec(`ALTER TABLE purchases ADD COLUMN invoice_no INTEGER;`);
+      console.log('🔧 Added column purchases.invoice_no');
+    }
+    // Ensure unique index exists for invoice_no for lookup
+    sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS purchases_invoice_no_unique ON purchases (invoice_no);`);
+  } catch (e) { console.warn('Could not ensure purchases.invoice_no:', e); }
 
   // Drop old triggers if they exist to avoid conflicts
   sqlite.exec(`
@@ -148,18 +171,18 @@ async function migrate() {
   sqlite.exec(`
     -- After insert: add to FTS
     CREATE TRIGGER products_ai AFTER INSERT ON products BEGIN
-      INSERT INTO product_fts(rowid, name, barcode) VALUES (new.id, new.name, new.barcode);
+      INSERT INTO products_fts(rowid, name, barcode) VALUES (new.id, new.name, new.barcode);
     END;
 
     -- After delete: remove from FTS using 'delete' command
     CREATE TRIGGER products_ad AFTER DELETE ON products BEGIN
-      INSERT INTO product_fts(product_fts, rowid) VALUES('delete', old.id);
+      INSERT INTO products_fts(products_fts, rowid) VALUES('delete', old.id);
     END;
 
     -- After update: remove old, insert new
     CREATE TRIGGER products_au AFTER UPDATE ON products BEGIN
-      INSERT INTO product_fts(product_fts, rowid) VALUES('delete', old.id);
-      INSERT INTO product_fts(rowid, name, barcode) VALUES (new.id, new.name, new.barcode);
+      INSERT INTO products_fts(products_fts, rowid) VALUES('delete', old.id);
+      INSERT INTO products_fts(rowid, name, barcode) VALUES (new.id, new.name, new.barcode);
     END;
   `);
 

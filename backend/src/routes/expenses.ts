@@ -3,7 +3,7 @@ import { db } from "../db";
 import { expenses } from "../db/schema";
 import { eq } from "drizzle-orm";
 
-export const expensesRoutes = new Elysia({ prefix: "/expenses" })
+export const expensesRoutes = new Elysia({ prefix: "/api/expenses" })
   .get("/", () => db.select().from(expenses))
   .post("/", ({ body }) => {
     return db.insert(expenses).values(body).returning().get();

@@ -3,7 +3,7 @@ import { db } from "../db";
 import { settings } from "../db/schema";
 import { eq } from "drizzle-orm";
 
-export const settingsRoutes = new Elysia({ prefix: "/settings" })
+export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
   .get("/", () => db.select().from(settings))
   .get("/:key", ({ params: { key } }) => {
     const row = db.select().from(settings).where(eq(settings.key, key)).get();

@@ -37,8 +37,20 @@ export const productsRoutes = new Elysia({ prefix: "/api/products" })
   })
 
   // Create new product
-  .post("/", async ({ body }) => {
+  .post("/", async ({ body, set }) => {
     const { name, barcode, purchasePrice, sellingPrice, stock, lowStockThreshold, supplierId } = body;
+    // Check duplicates (barcode has unique constraint at DB level but we return friendly error)
+    const existingByBarcode = await db.select().from(products).where(sql`${products.barcode} = ${barcode}`).get();
+    if (existingByBarcode) {
+      set.status = 409;
+      return { error: 'Product with this barcode already exists', existing: existingByBarcode };
+    }
+    const existingByName = await db.select().from(products).where(sql`${products.name} = ${name}`).get();
+    if (existingByName) {
+      set.status = 409;
+      return { error: 'Product with this name already exists', existing: existingByName };
+    }
+
     const newProduct = await db.insert(products).values({
       name, barcode, purchasePrice, sellingPrice, stock, lowStockThreshold, supplierId
     }).returning().get();

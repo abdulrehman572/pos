@@ -1,5 +1,4 @@
-@'
-# Install.ps1 – KiryanaPOS Client Installer (7-Day Trial)
+# Install.ps1 ??? KiryanaPOS Client Installer (7-Day Trial)
 # Run as Administrator
 #Requires -RunAsAdministrator
 
@@ -15,7 +14,7 @@ $trialDays     = 7
 
 Write-Host "Installing $appName..." -ForegroundColor Cyan
 
-# 1. Stop and remove any left‑over service/task from previous attempts
+# 1. Stop and remove any left???over service/task from previous attempts
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 Stop-Service KiryanaPOS -Force -ErrorAction SilentlyContinue
 sc.exe delete KiryanaPOS -ErrorAction SilentlyContinue
@@ -56,12 +55,12 @@ if (`$installDate) {
     `$daysUsed = ((Get-Date) - `$start).Days
     `$trialDays = $trialDays
     if (`$daysUsed -ge `$trialDays) {
-        # Trial expired – log and exit without starting backend
+        # Trial expired ??? log and exit without starting backend
         `$logDir = "$dataDir"
         if (-not (Test-Path `$logDir)) { New-Item -ItemType Directory -Force -Path `$logDir | Out-Null }
         `$logMsg = "Trial expired after `$trialDays days. InstallDate: `$($start.ToString('yyyy-MM-dd')). Contact Khubaib Enterprises for licence."
         Add-Content -Path "`$logDir\trial.log" -Value "`$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - `$logMsg"
-        # Show popup (optional – comment out if running as SYSTEM without desktop interaction)
+        # Show popup (optional ??? comment out if running as SYSTEM without desktop interaction)
         Add-Type -AssemblyName System.Windows.Forms
         [System.Windows.Forms.MessageBox]::Show("Your 7-day trial of KiryanaPOS has expired.`nPlease contact Khubaib Enterprises to purchase a licence.", "Trial Expired", 0, 16)
         exit 1
@@ -111,4 +110,3 @@ $uninstaller | Out-File -FilePath "$progFilesDir\Uninstall.ps1" -Encoding ASCII
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "Trial: $trialDays days from first install. Open http://localhost:$port or use the desktop shortcut." -ForegroundColor Yellow
 Write-Host "If the trial expires, the backend will not start." -ForegroundColor DarkYellow
-'@ | Set-Content -Path .\Install.ps1 -Encoding ASCII
